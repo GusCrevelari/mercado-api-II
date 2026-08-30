@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="https://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${mercado.nome + ' | Mercado Express'}">Produto | Mercado Express</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="app-header">
+    <nav class="nav-shell">
+        <a class="brand" th:href="@{/}">
+            <span class="brand-mark">ME</span>
+            <span>Mercado Express</span>
+        </a>
+        <div class="nav-actions">
+            <a class="nav-link active" th:href="@{/mercado}">Produtos</a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post" class="inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn btn-outline" type="submit">Sair</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main class="page-shell narrow">
+    <section class="page-heading">
+        <div>
+            <p class="eyebrow">Detalhes do produto</p>
+            <h1 th:text="${mercado.nome}">Produto</h1>
+        </div>
+        <a class="btn btn-ghost" th:href="@{/mercado}">Voltar</a>
+    </section>
+
+    <div class="alert alert-success" th:if="${sucesso}" th:text="${sucesso}"></div>
+
+    <section class="detail-panel">
+        <dl class="detail-grid">
+            <div>
+                <dt>Nome</dt>
+                <dd th:text="${mercado.nome}">Cafe</dd>
+            </div>
+            <div>
+                <dt>Tipo</dt>
+                <dd th:text="${mercado.tipo}">Bebida</dd>
+            </div>
+            <div>
+                <dt>Setor</dt>
+                <dd th:text="${mercado.setor}">Mercearia</dd>
+            </div>
+            <div>
+                <dt>Tamanho</dt>
+                <dd th:text="${mercado.tamanho}">500 g</dd>
+            </div>
+            <div class="price-cell">
+                <dt>Preco</dt>
+                <dd th:text="${'R$ ' + #numbers.formatDecimal(mercado.preco, 1, 'POINT', 2, 'COMMA')}">R$ 19,90</dd>
+            </div>
+        </dl>
+
+        <div class="detail-actions">
+            <a class="btn btn-ghost" th:href="@{/mercado}">Voltar</a>
+            <a class="btn btn-outline" th:href="@{/mercado/{id}/editar(id=${mercado.id})}">Editar</a>
+            <form th:action="@{/mercado/{id}(id=${mercado.id})}" method="post" class="inline-form"
+                  onsubmit="return confirm('Tem certeza que deseja excluir este produto?');">
+                <input type="hidden" name="_method" value="delete">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn btn-danger" type="submit">Excluir</button>
+            </form>
+        </div>
+    </section>
+</main>
+</body>
+</html>

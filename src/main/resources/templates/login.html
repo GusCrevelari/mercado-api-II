@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Mercado Express</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body class="login-page">
+<header class="app-header">
+    <nav class="nav-shell">
+        <a class="brand" th:href="@{/}">
+            <span class="brand-mark">ME</span>
+            <span>Mercado Express</span>
+        </a>
+        <div class="nav-actions">
+            <a class="nav-link" th:href="@{/}">Inicio</a>
+        </div>
+    </nav>
+</header>
+
+<main class="auth-shell">
+    <section class="auth-panel">
+        <div class="auth-intro">
+            <p class="eyebrow">Acesso privado</p>
+            <h1>Entrar</h1>
+            <p>Use as credenciais da demonstracao local para acessar a gestao de produtos.</p>
+        </div>
+
+        <div class="alert alert-error" th:if="${param.error}">
+            Usuario ou senha invalidos.
+        </div>
+        <div class="alert alert-success" th:if="${param.logout}">
+            Logout realizado com sucesso.
+        </div>
+
+        <form class="form-card" th:action="@{/login}" method="post">
+            <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+
+            <label class="field">
+                <span>Usuario</span>
+                <input type="text" name="username" autocomplete="username" required autofocus>
+            </label>
+
+            <label class="field">
+                <span>Senha</span>
+                <input type="password" name="password" autocomplete="current-password" required>
+            </label>
+
+            <button class="btn btn-primary btn-full" type="submit">Entrar</button>
+        </form>
+    </section>
+</main>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="https://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mercado Express</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body>
+<header class="app-header">
+    <nav class="nav-shell">
+        <a class="brand" th:href="@{/}">
+            <span class="brand-mark">ME</span>
+            <span>Mercado Express</span>
+        </a>
+        <div class="nav-actions">
+            <a class="nav-link" th:href="@{/mercado}">Produtos</a>
+            <a class="btn btn-outline" sec:authorize="!isAuthenticated()" th:href="@{/login}">Entrar</a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post" class="inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn btn-outline" type="submit">Sair</button>
+            </form>
+        </div>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <div class="hero-content">
+            <p class="eyebrow">Spring MVC + Thymeleaf</p>
+            <h1>Mercado Express</h1>
+            <p class="hero-copy">
+                Uma aplicacao web para controle de produtos de mercado, com cadastro, consulta,
+                edicao e exclusao em interface MVC server-side.
+            </p>
+            <div class="hero-actions">
+                <a class="btn btn-primary" th:href="@{/mercado}">Acessar Produtos</a>
+                <a class="btn btn-ghost" th:href="@{/login}">Login</a>
+            </div>
+        </div>
+    </section>
+
+    <section class="feature-band">
+        <div class="feature-grid">
+            <article>
+                <span class="feature-icon">01</span>
+                <h2>CRUD completo</h2>
+                <p>Produtos com nome, tipo, setor, tamanho e preco, acessiveis por links e botoes.</p>
+            </article>
+            <article>
+                <span class="feature-icon">02</span>
+                <h2>Persistencia Oracle</h2>
+                <p>Mapeamento JPA sincronizado com tabela e sequence manuais do checkpoint.</p>
+            </article>
+            <article>
+                <span class="feature-icon">03</span>
+                <h2>Rotas protegidas</h2>
+                <p>A area de produtos exige autenticacao e usa pagina de login personalizada.</p>
+            </article>
+        </div>
+    </section>
+</main>
+</body>
+</html>
