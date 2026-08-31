@@ -6,30 +6,36 @@
     <title th:text="${mercado.nome + ' | Mercado Express'}">Produto | Mercado Express</title>
     <link rel="stylesheet" th:href="@{/css/style.css}">
 </head>
-<body>
-<header class="app-header">
-    <nav class="nav-shell">
-        <a class="brand" th:href="@{/}">
+<body class="app-body">
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <a class="sidebar-brand" th:href="@{/}">
             <span class="brand-mark">ME</span>
             <span>Mercado Express</span>
         </a>
-        <div class="nav-actions">
-            <a class="nav-link active" th:href="@{/mercado}">Produtos</a>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link active" th:href="@{/mercado}">Produtos</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-block" sec:authorize="isAuthenticated()">
+                <span class="user-label">Usuario</span>
+                <span class="user-name" sec:authentication="name">admin</span>
+            </div>
             <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post" class="inline-form">
                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
                 <button class="btn btn-outline" type="submit">Sair</button>
             </form>
         </div>
-    </nav>
-</header>
+    </aside>
 
-<main class="page-shell narrow">
+    <main class="app-content">
+        <div class="page-shell narrow">
     <section class="page-heading">
         <div>
             <p class="eyebrow">Detalhes do produto</p>
             <h1 th:text="${mercado.nome}">Produto</h1>
         </div>
-        <a class="btn btn-ghost" th:href="@{/mercado}">Voltar</a>
+        <a class="btn btn-secondary" th:href="@{/mercado}">Voltar</a>
     </section>
 
     <div class="alert alert-success" th:if="${sucesso}" th:text="${sucesso}"></div>
@@ -59,8 +65,8 @@
         </dl>
 
         <div class="detail-actions">
-            <a class="btn btn-ghost" th:href="@{/mercado}">Voltar</a>
-            <a class="btn btn-outline" th:href="@{/mercado/{id}/editar(id=${mercado.id})}">Editar</a>
+            <a class="btn btn-secondary" th:href="@{/mercado}">Voltar</a>
+            <a class="btn btn-secondary" th:href="@{/mercado/{id}/editar(id=${mercado.id})}">Editar</a>
             <form th:action="@{/mercado/{id}(id=${mercado.id})}" method="post" class="inline-form"
                   onsubmit="return confirm('Tem certeza que deseja excluir este produto?');">
                 <input type="hidden" name="_method" value="delete">
@@ -69,6 +75,8 @@
             </form>
         </div>
     </section>
-</main>
+        </div>
+    </main>
+</div>
 </body>
 </html>
