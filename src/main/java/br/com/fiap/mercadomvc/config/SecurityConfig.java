@@ -3,6 +3,7 @@ package br.com.fiap.mercadomvc.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,8 +22,14 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/", "/login", "/css/**", "/images/**", "/webjars/**", "/favicon.ico")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/mercado", "/api/mercado/*").permitAll()
+                        .requestMatchers("/api/mercado", "/api/mercado/**").authenticated()
                         .requestMatchers("/mercado/**").authenticated()
                         .anyRequest().authenticated())
+                .csrf(csrf -> csrf
+                        // JSON clients such as Postman do not receive Thymeleaf CSRF tokens.
+                        // The MVC form routes remain protected by CSRF.
+                        .ignoringRequestMatchers("/api/**"))
                 .formLogin(form -> form
                         .loginPage("/login")
                         .defaultSuccessUrl("/mercado", true)

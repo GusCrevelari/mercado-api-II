@@ -4,6 +4,7 @@ import br.com.fiap.mercadomvc.exception.MercadoNaoEncontradoException;
 import br.com.fiap.mercadomvc.model.Mercado;
 import br.com.fiap.mercadomvc.repository.MercadoRepository;
 import java.util.List;
+import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +40,13 @@ public class MercadoService {
         mercado.setSetor(mercadoAtualizado.getSetor());
         mercado.setTamanho(mercadoAtualizado.getTamanho());
         mercado.setPreco(mercadoAtualizado.getPreco());
+        return mercadoRepository.save(mercado);
+    }
+
+    @Transactional
+    public Mercado atualizarParcial(Long id, Consumer<Mercado> atualizacao) {
+        Mercado mercado = buscarPorId(id);
+        atualizacao.accept(mercado);
         return mercadoRepository.save(mercado);
     }
 
