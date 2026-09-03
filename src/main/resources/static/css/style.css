@@ -12,6 +12,7 @@
     --color-input-border: #D1D5DB;
 
     --color-danger: #D32F2F;
+    --color-danger-dark: #B71C1C;
     --color-danger-bg: #FFEBEE;
 
     --color-success: #2E7D32;
@@ -24,8 +25,8 @@
     --space-xl: 32px;
 
     --radius-sm: 6px;
-    --radius-md: 10px;
-    --radius-lg: 16px;
+    --radius-md: 8px;
+    --radius-lg: 8px;
 
     --shadow-sm: 0 1px 3px rgba(0,0,0,0.10);
     --shadow-md: 0 2px 6px rgba(0,0,0,0.14);
@@ -205,6 +206,12 @@ h2 {
     background: var(--color-danger-bg);
     border-color: #F4C7C7;
     color: var(--color-danger);
+}
+
+.btn-danger:hover {
+    background: var(--color-danger);
+    border-color: var(--color-danger-dark);
+    color: #FFFFFF;
 }
 
 .btn-small {
@@ -618,6 +625,60 @@ tr:last-child td {
     font-size: 1.8rem;
 }
 
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: var(--space-md);
+    background: rgba(31, 41, 55, 0.58);
+}
+
+.modal-backdrop[hidden] {
+    display: none;
+}
+
+.delete-modal {
+    width: min(440px, 100%);
+    padding: var(--space-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius-lg) * 2);
+    box-shadow: 0 18px 46px rgba(31, 41, 55, 0.22), var(--shadow-md);
+}
+
+.delete-modal h2 {
+    margin-bottom: var(--space-md);
+    color: var(--color-text);
+    font-size: 1.25rem;
+}
+
+.delete-modal-message,
+.delete-modal-warning {
+    color: var(--color-muted);
+}
+
+.delete-modal-message {
+    margin-bottom: var(--space-md);
+}
+
+.delete-modal-message strong {
+    color: var(--color-text);
+    font-weight: 800;
+}
+
+.delete-modal-warning {
+    margin-bottom: var(--space-lg);
+}
+
+.delete-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
 @media (max-width: 767px) {
     h1 {
         font-size: 1.65rem;
@@ -636,7 +697,8 @@ tr:last-child td {
     .nav-actions,
     .hero-actions,
     .form-actions,
-    .detail-actions {
+    .detail-actions,
+    .delete-modal-actions {
         width: 100%;
         align-items: stretch;
     }
