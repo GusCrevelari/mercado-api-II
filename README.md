@@ -2,11 +2,11 @@
 
 ## Sobre o projeto
 
-Mercado Express e uma aplicacao Spring MVC desenvolvida para o **FIAP Java Advanced — Checkpoint 4 Parte II: Spring MVC, Security e Deploy**.
+Mercado Express é uma aplicação Spring MVC desenvolvida para o **FIAP Java Advanced — Checkpoint 4 Parte II: Spring MVC, Security e Deploy**.
 
-O sistema permite que usuarios autenticados gerenciem produtos de mercado por uma interface web renderizada com **Spring MVC + Thymeleaf**. Os dados sao persistidos em banco **Oracle** por meio de Spring Data JPA, e as rotas privadas sao protegidas com Spring Security.
+O sistema permite que usuários autenticados gerenciem produtos de mercado por uma interface web renderizada com **Spring MVC + Thymeleaf**. Os dados são persistidos em banco **Oracle** por meio de Spring Data JPA, e as rotas privadas são protegidas com Spring Security.
 
-## Requisitos atendidos
+## Requisitos
 
 - Spring Boot 4.1.1
 - Maven
@@ -14,14 +14,14 @@ O sistema permite que usuarios autenticados gerenciem produtos de mercado por um
 - Spring MVC com `@Controller`
 - Thymeleaf
 - CRUD web completo
-- Persistencia em Oracle
-- Spring Security com rotas publicas e privadas
+- Persistência em Oracle
+- Spring Security com rotas públicas e privadas
 - Lombok
 - Bean Validation
 - Projeto preparado para deploy com Docker no Render
-- API REST adicional com DTOs, validacao, tratamento de erros e HATEOAS
+- API REST adicional com DTOs, validação, tratamento de erros e HATEOAS
 
-A API REST/HATEOAS e um complemento para demonstrar conceitos praticados na Parte I. Ela nao substitui a aplicacao MVC exigida na Parte II.
+A API REST/HATEOAS é uma funcionalidade adicional para demonstrar conceitos praticados na Parte I. A entrega principal da Parte II continua sendo a aplicação MVC com Thymeleaf e Spring Security.
 
 ## Tecnologias utilizadas
 
@@ -40,7 +40,7 @@ A API REST/HATEOAS e um complemento para demonstrar conceitos praticados na Part
 
 ## Arquitetura
 
-Fluxo principal da aplicacao web:
+Fluxo principal da aplicação web:
 
 ```text
 Browser
@@ -56,7 +56,7 @@ Repository
 Oracle
 ```
 
-Renderizacao HTML:
+Renderização HTML:
 
 ```text
 MVC Controller
@@ -98,105 +98,177 @@ TDS_MVC_SEQ_MERCADO
 
 Campos persistidos:
 
-| Campo | Tipo Java | Observacao |
+| Campo | Tipo Java | Observação |
 | ----- | --------- | ---------- |
-| `id` | `Long` | Chave primaria gerada pela sequence |
-| `nome` | `String` | Obrigatorio, ate 120 caracteres |
-| `tipo` | `String` | Obrigatorio, ate 50 caracteres |
-| `setor` | `String` | Obrigatorio, ate 80 caracteres |
-| `tamanho` | `String` | Obrigatorio, ate 40 caracteres |
-| `preco` | `BigDecimal` | Obrigatorio, maior que zero, escala de 2 casas |
+| `id` | `Long` | Chave primária gerada pela sequence |
+| `nome` | `String` | Obrigatório, até 120 caracteres |
+| `tipo` | `String` | Obrigatório, até 50 caracteres |
+| `setor` | `String` | Obrigatório, até 80 caracteres |
+| `tamanho` | `String` | Obrigatório, até 40 caracteres |
+| `preco` | `BigDecimal` | Obrigatório, maior que zero, escala de 2 casas |
 
-A aplicacao usa `spring.jpa.hibernate.ddl-auto=validate`, portanto nao cria nem altera a estrutura do banco automaticamente.
+A aplicação usa `spring.jpa.hibernate.ddl-auto=validate`, portanto não cria nem altera a estrutura do banco automaticamente.
 
-## Seguranca com Spring Security
+## Interface Web com Thymeleaf
 
-Rotas publicas:
+A rota `/` é pública e apresenta uma página inicial simples com acesso à área de produtos e à tela de login.
+
+<p align="center">
+  <img src="docs/images/2-home.png"
+       width="900"
+       alt="Página inicial pública do Mercado Express">
+</p>
+<p align="center">
+  <sub>Página inicial pública da aplicação.</sub>
+</p>
+
+A interface browser-facing usa templates Thymeleaf em `src/main/resources/templates` e recursos como `th:text`, `th:each`, `th:object`, `th:field`, `th:action`, `th:if` e `th:errors`.
+
+## Segurança com Spring Security
+
+A rota `/login` é pública. As rotas `/mercado/**` são privadas, e usuários não autenticados são redirecionados naturalmente para a tela de login antes de acessar a gestão de produtos.
+
+<p align="center">
+  <img src="docs/images/1-login.png"
+       width="900"
+       alt="Tela de login do Mercado Express">
+</p>
+<p align="center">
+  <sub>Tela pública de autenticação com formulário do Spring Security.</sub>
+</p>
+
+Rotas públicas:
 
 - `/`
 - `/login`
-- assets estaticos em `/css/**`, `/images/**`, `/webjars/**` e `/favicon.ico`
+- assets estáticos em `/css/**`, `/images/**`, `/webjars/**` e `/favicon.ico`
 - leitura REST em `GET /api/mercado` e `GET /api/mercado/{id}`
 
 Rotas privadas:
 
 - `/mercado/**`
-- mutacoes REST em `/api/mercado/**`
+- mutações REST em `/api/mercado/**`
 
-A autenticacao usa login por formulario do Spring Security. O logout e feito por `POST /logout`, com token CSRF nos formularios Thymeleaf.
+A autenticação usa login por formulário do Spring Security. O logout é feito por `POST /logout`, com token CSRF nos formulários Thymeleaf.
 
-Credenciais padrao para desenvolvimento local:
+Credenciais padrão para desenvolvimento local:
 
 ```text
-Usuario: admin
+Usuário: admin
 Senha: fiap123
 ```
-
-Esses valores devem ser substituidos em ambiente de deploy por `APP_USERNAME` e `APP_PASSWORD`.
-
-## Interface Web com Thymeleaf
-
-A interface browser-facing usa templates Thymeleaf em `src/main/resources/templates`.
-
-O projeto utiliza recursos reais do Thymeleaf, incluindo:
-
-- `th:text`
-- `th:each`
-- `th:object`
-- `th:field`
-- `th:action`
-- `th:if`
-- `th:errors`
-
-As telas cobertas pela interface sao:
-
-- home publica
-- login
-- listagem de produtos
-- formulario de criacao
-- detalhes do produto
-- formulario de edicao
-- pagina amigavel de produto nao encontrado
-
 ## CRUD
 
-Todas as operacoes do CRUD usam a tabela `TDS_MVC_TB_MERCADO` por meio do `MercadoService` e `MercadoRepository`.
+Todas as operações do CRUD usam a tabela `TDS_MVC_TB_MERCADO` por meio do `MercadoService` e `MercadoRepository`.
 
-### Create
+### CREATE — Novo produto
 
-O usuario acessa **Novo Produto**, preenche o formulario e envia `POST /mercado`.
+O usuário acessa **Novo Produto**, preenche o formulário e envia `POST /mercado`. O formulário Thymeleaf recebe `nome`, `tipo`, `setor`, `tamanho` e `preco`, com Bean Validation aplicada aos campos.
 
-### Read
+<p align="center">
+  <img src="docs/images/05-novo-produto.png"
+       width="900"
+       alt="Formulário de criação de produto">
+</p>
+<p align="center">
+  <sub>Formulário MVC para cadastro de produto.</sub>
+</p>
 
-A listagem aparece em `GET /mercado`, e os detalhes de um item aparecem em `GET /mercado/{id}`.
+Após a validação bem-sucedida, o fluxo é:
 
-### Update
+```text
+Controller
+→ Service
+→ Repository
+→ Oracle
+```
 
-O usuario acessa **Editar**, altera os campos e envia `PUT /mercado/{id}` usando o filtro de metodo oculto do Spring MVC.
+A interface retorna para a listagem e mostra o estado de sucesso.
 
-### Delete
+<p align="center">
+  <img src="docs/images/05-produto-criado.png"
+       width="900"
+       alt="Produto criado com sucesso na listagem">
+</p>
+<p align="center">
+  <sub>Produto criado e persistido no Oracle.</sub>
+</p>
 
-O usuario aciona **Excluir**, e a remocao e enviada como `DELETE /mercado/{id}`. O projeto nao usa GET para excluir registros.
+### READ — Listagem de produtos
+
+A listagem aparece em `GET /mercado`. O Thymeleaf renderiza a coleção retornada do Oracle e expõe as ações **Novo Produto**, **Ver**, **Editar** e **Excluir**.
+
+<p align="center">
+  <img src="docs/images/03-produtos.png"
+       width="900"
+       alt="Listagem de produtos do Mercado Express">
+</p>
+<p align="center">
+  <sub>Lista de produtos renderizada com Thymeleaf.</sub>
+</p>
+
+### READ — Detalhes do produto
+
+`GET /mercado/{id}` carrega um único produto e renderiza seus valores através do Thymeleaf.
+
+<p align="center">
+  <img src="docs/images/06-detalhes.png"
+       width="900"
+       alt="Tela de detalhes de um produto">
+</p>
+<p align="center">
+  <sub>Detalhes de um produto carregado pelo ID.</sub>
+</p>
+
+### UPDATE — Editar produto
+
+Ao acessar **Editar**, os valores existentes são carregados, o formulário é preenchido e o envio atualiza o mesmo registro Oracle com `PUT /mercado/{id}` usando o filtro de método oculto do Spring MVC.
+
+<p align="center">
+  <img src="docs/images/07-editar-produto.png"
+       width="900"
+       alt="Formulário de edição de produto">
+</p>
+<p align="center">
+  <sub>Formulário preenchido com os dados atuais do produto.</sub>
+</p>
+
+Após a atualização, o produto permanece salvo no Oracle com os novos valores.
+
+<p align="center">
+  <img src="docs/images/08-produto-atualizado.png"
+       width="900"
+       alt="Produto atualizado com sucesso">
+</p>
+<p align="center">
+  <sub>Produto atualizado e persistido.</sub>
+</p>
+
+### DELETE — Excluir produto
+
+O usuário aciona **Excluir**, confirma a ação em um modal customizado e a remoção é enviada como `DELETE /mercado/{id}`. O formulário original mantém `_method=delete`, o token CSRF continua habilitado e o registro é removido do Oracle.
+
+Não há screenshot de exclusão confirmado atualmente em `docs/images/`.
 
 ## Rotas MVC
 
-| Metodo | Rota | Funcao |
+| Método | Rota | Função |
 | ------ | ---- | ------ |
-| GET | `/` | Home publica |
-| GET | `/login` | Pagina de login |
+| GET | `/` | Home pública |
+| GET | `/login` | Página de login |
 | GET | `/mercado` | Listar produtos |
-| GET | `/mercado/novo` | Formulario de criacao |
+| GET | `/mercado/novo` | Formulário de criação |
 | POST | `/mercado` | Criar produto |
 | GET | `/mercado/{id}` | Detalhes do produto |
-| GET | `/mercado/{id}/editar` | Formulario de edicao |
+| GET | `/mercado/{id}/editar` | Formulário de edição |
 | PUT | `/mercado/{id}` | Atualizar produto |
 | DELETE | `/mercado/{id}` | Excluir produto |
 
 ## API REST adicional
 
-A API REST fica em `/api/mercado` e usa DTOs especificos, sem expor diretamente a entidade JPA.
+A API REST fica em `/api/mercado` e usa DTOs específicos, sem expor diretamente a entidade JPA.
 
-| Metodo | Rota | Funcao |
+| Método | Rota | Função |
 | ------ | ---- | ------ |
 | GET | `/api/mercado` | Listar produtos |
 | GET | `/api/mercado/{id}` | Buscar produto por ID |
@@ -205,7 +277,7 @@ A API REST fica em `/api/mercado` e usa DTOs especificos, sem expor diretamente 
 | PATCH | `/api/mercado/{id}` | Atualizar campos parcialmente |
 | DELETE | `/api/mercado/{id}` | Excluir produto |
 
-O `PATCH` implementa atualizacao parcial verdadeira. Por exemplo, enviar apenas:
+O `PATCH` implementa atualização parcial verdadeira. Por exemplo, enviar apenas:
 
 ```json
 {
@@ -224,7 +296,7 @@ Exemplo simplificado de recurso:
 ```json
 {
   "id": 1,
-  "nome": "Cafe especial",
+  "nome": "Café especial",
   "tipo": "Bebida",
   "setor": "Mercearia",
   "tamanho": "500 g",
@@ -243,42 +315,39 @@ Exemplo simplificado de recurso:
 Links:
 
 - `self`: recurso atual
-- `collection`: colecao completa de produtos
+- `collection`: coleção completa de produtos
 
-## Validacao e tratamento de erros
+## Validação e tratamento de erros
 
-A entidade e os DTOs validam os campos obrigatorios, tamanho maximo e preco.
+A entidade e os DTOs validam campos obrigatórios, tamanho máximo e preço.
 
-Na interface MVC, erros de formulario sao exibidos no proprio template com `th:errors`.
+Na interface MVC, erros de formulário são exibidos no próprio template com `th:errors`.
 
-Na API REST, erros de validacao retornam `400 Bad Request` em JSON, e produtos inexistentes retornam `404 Not Found` em JSON. A pagina MVC continua usando a tela amigavel `mercado/nao-encontrado.html`.
+Na API REST, erros de validação retornam `400 Bad Request` em JSON, e produtos inexistentes retornam `404 Not Found` em JSON. A página MVC continua usando a tela amigável `mercado/nao-encontrado.html`.
 
-## Configuracao do Spring Initializr
+## Configuração do Spring Initializr
 
-O projeto foi criado com as dependencias necessarias para MVC, Thymeleaf, JPA, Oracle, Security, Validation e Lombok.
+O projeto foi criado com as dependências necessárias para MVC, Thymeleaf, JPA, Oracle, Security, Validation e Lombok.
 
 <p align="center">
-  <img src="docs/images/spring-initializr.png" width="900" alt="Configuracao final do Spring Initializr">
+  <img src="docs/images/spring-initializr.png"
+       width="900"
+       alt="Configuração final do Spring Initializr">
 </p>
-
-## Screenshots
-
-A imagem real disponivel no repositorio atualmente e:
-
-- `docs/images/spring-initializr.png`
-
-Screenshots das telas de CRUD podem ser adicionados posteriormente em `docs/images/`, sem alterar a implementacao.
+<p align="center">
+  <sub>Configuração final usada no Spring Initializr.</sub>
+</p>
 
 ## Como executar localmente
 
-Clone o repositorio:
+Clone o repositório:
 
 ```powershell
 git clone git@github.com:GusCrevelari/mercado-api-II.git
 cd mercado-api-II
 ```
 
-Configure as variaveis de ambiente:
+Configure as variáveis de ambiente:
 
 ```powershell
 $env:DB_URL="jdbc:oracle:thin:@oracle.fiap.com.br:1521:ORCL"
@@ -302,25 +371,31 @@ http://localhost:8082
 
 ## Deploy
 
-O projeto esta preparado para deploy no Render usando Docker.
+O projeto está publicado no Render:
 
-Variaveis de ambiente necessarias no Render:
+```text
+https://mercado-api-ii.onrender.com
+```
+
+Área de produtos em produção:
+
+```text
+https://mercado-api-ii.onrender.com/mercado
+```
+
+Variáveis de ambiente necessárias no Render:
 
 ```text
 DB_URL
 DB_USERNAME
 DB_PASSWORD
-APP_USERNAME
-APP_PASSWORD
 ```
 
-O Dockerfile usa Java 17, build multi-stage e respeita a porta injetada pelo Render via variavel `PORT`, pois a aplicacao esta configurada com:
+O Dockerfile usa Java 17, build multi-stage e respeita a porta injetada pelo Render via variável `PORT`, pois a aplicação está configurada com:
 
 ```properties
 server.port=${PORT:8082}
 ```
-
-O endereco de producao sera adicionado apos a publicacao no Render.
 
 ## Estrutura do projeto
 
@@ -331,9 +406,16 @@ O endereco de producao sera adicionado apos a publicacao no Render.
 ├── docs
 │   ├── database
 │   │   └── oracle-schema.sql
-│   ├── images
-│   │   └── spring-initializr.png
-│   └── video-checklist.md
+│   └── images
+│       ├── 1-login.png
+│       ├── 2-home.png
+│       ├── 03-produtos.png
+│       ├── 05-novo-produto.png
+│       ├── 05-produto-criado.png
+│       ├── 06-detalhes.png
+│       ├── 07-editar-produto.png
+│       ├── 08-produto-atualizado.png
+│       └── spring-initializr.png
 ├── pom.xml
 └── src
     └── main
