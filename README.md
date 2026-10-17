@@ -1,4 +1,91 @@
-# Mercado Express — Checkpoint 4 Parte II
+# Mercado Express — CP5 Parte 1
+
+Esta fase adiciona PostgreSQL, Flyway, cadastro persistido de usuarios e autorizacao por perfil, preservando o CRUD MVC e a API REST de produtos. RabbitMQ, pagamentos, compras, emails e dashboard nao fazem parte desta implementacao.
+
+## Configuracao CP5 com PostgreSQL
+
+O perfil `postgres` habilita as migrations e a autenticacao pelo banco. Crie um banco local vazio e um usuario proprio. Exemplo para `psql`, substituindo o valor indicado por uma senha local:
+
+```sql
+CREATE ROLE mercado_cp5_app LOGIN PASSWORD '<senha-local-segura>';
+CREATE DATABASE mercado_cp5 OWNER mercado_cp5_app;
+```
+
+Configure somente a sessao atual do PowerShell:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="postgres"
+$env:DB_URL="jdbc:postgresql://localhost:5432/mercado_cp5"
+$env:DB_USERNAME="mercado_cp5_app"
+$env:DB_PASSWORD="<senha-local-segura>"
+```
+
+Nao existem credenciais nem connection strings de fallback no codigo. Confirme que `DB_URL` aponta para o banco local correto antes de iniciar a aplicacao, pois o Flyway executa automaticamente:
+
+- `V1__create_product_schema.sql`: sequence e tabela de produtos;
+- `V2__create_user_schema.sql`: sequence, tabela de usuarios, login unico e perfis permitidos.
+
+O Hibernate usa `ddl-auto=validate` no PostgreSQL; a estrutura e criada pelo Flyway.
+
+### Provisionamento do primeiro ADMIN
+
+Nao existe cadastro publico de administrador. Para criar o primeiro `ADMIN`, defina antes da primeira inicializacao:
+
+```powershell
+$env:APP_ADMIN_USERNAME="<login-administrador>"
+$env:APP_ADMIN_PASSWORD="<senha-administrador-segura>"
+$env:APP_ADMIN_NAME="<nome-administrador>"
+```
+
+O provisionador cria a conta somente se o login nao existir. Ele nao eleva uma conta `CLIENTE` existente e nao substitui a senha de um administrador ja persistido. Depois do provisionamento inicial, essas variaveis podem ser removidas do ambiente.
+
+### Execucao PostgreSQL
+
+```powershell
+.\mvnw.cmd spring-boot:run
+```
+
+A aplicacao fica em `http://localhost:8082`. `/registro` e publico apenas no perfil PostgreSQL; toda conta criada nessa pagina recebe obrigatoriamente o perfil `CLIENTE`.
+
+### Perfis e permissoes
+
+| Acao | ADMIN | CLIENTE |
+| --- | --- | --- |
+| Listar e ver produtos | Sim | Sim |
+| Criar produtos | Sim | Nao |
+| Atualizar produtos | Sim | Nao |
+| Excluir produtos | Sim | Nao |
+| Mutacoes na API REST | Sim | Nao |
+
+As permissoes sao aplicadas pelo Spring Security no servidor. Os controles administrativos tambem sao removidos do HTML do cliente; tentativas autenticadas sem permissao retornam `403 Forbidden`.
+
+### Testes
+
+Os testes usam H2 isolado em memoria e nao acessam PostgreSQL, Oracle, DEV ou producao:
+
+```powershell
+.\mvnw.cmd clean test
+.\mvnw.cmd clean package
+```
+
+Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, navegacao por perfil e compatibilidade do CRUD MVC.
+
+## Compatibilidade Oracle
+
+`oracle` permanece como perfil padrao ate que o cutover seja aprovado. Ele mantem o CRUD existente e a autenticacao administrativa legada, agora obrigatoriamente configurada por ambiente. Flyway e cadastro publico ficam desabilitados, e nenhuma tabela Oracle e criada ou alterada.
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE="oracle"
+$env:DB_URL="<jdbc-url-oracle>"
+$env:DB_USERNAME="<usuario-oracle>"
+$env:DB_PASSWORD="<senha-oracle>"
+$env:APP_USERNAME="<login-administrativo-legado>"
+$env:APP_PASSWORD="<senha-administrativa-legada>"
+```
+
+Nenhuma infraestrutura de producao foi alterada nesta fase.
+
+## Documentacao historica do CP4
 
 ## Sobre o projeto
 
@@ -151,12 +238,7 @@ Rotas privadas:
 
 A autenticação usa login por formulário do Spring Security. O logout é feito por `POST /logout`, com token CSRF nos formulários Thymeleaf.
 
-Credenciais padrão para desenvolvimento local:
-
-```text
-Usuário: admin
-Senha: fiap123
-```
+As credenciais legadas nao possuem mais valores padrao e devem ser fornecidas por variaveis de ambiente.
 ## CRUD
 
 Todas as operações do CRUD usam a tabela `TDS_MVC_TB_MERCADO` por meio do `MercadoService` e `MercadoRepository`.
@@ -350,11 +432,12 @@ cd mercado-api-II
 Configure as variáveis de ambiente:
 
 ```powershell
-$env:DB_URL="jdbc:oracle:thin:@oracle.fiap.com.br:1521:ORCL"
-$env:DB_USERNAME="seu_usuario_oracle"
-$env:DB_PASSWORD="sua_senha_oracle"
-$env:APP_USERNAME="admin"
-$env:APP_PASSWORD="sua_senha_da_aplicacao"
+$env:SPRING_PROFILES_ACTIVE="oracle"
+$env:DB_URL="<jdbc-url-oracle>"
+$env:DB_USERNAME="<usuario-oracle>"
+$env:DB_PASSWORD="<senha-oracle>"
+$env:APP_USERNAME="<login-administrativo-legado>"
+$env:APP_PASSWORD="<senha-administrativa-legada>"
 ```
 
 Execute:
@@ -369,7 +452,7 @@ Acesse:
 http://localhost:8082
 ```
 
-## Deploy
+## Deploy no Render com PostgreSQL
 
 O projeto está publicado no Render:
 
@@ -383,13 +466,24 @@ https://mercado-api-ii.onrender.com
 https://mercado-api-ii.onrender.com/mercado
 ```
 
-Variáveis de ambiente necessárias no Render:
+O deploy do CP5 usa PostgreSQL. O Java Web Service e o banco PostgreSQL devem pertencer ao mesmo workspace e estar na mesma região do Render para que a rede privada e o hostname interno funcionem.
+
+Configure as variáveis abaixo no Java Web Service. Use o hostname interno exibido pelo Render, mantenha as credenciais separadas da URL e não salve valores reais no repositório:
 
 ```text
-DB_URL
-DB_USERNAME
-DB_PASSWORD
+SPRING_PROFILES_ACTIVE=postgres
+DB_URL=jdbc:postgresql://<hostname-interno-render>:5432/<nome-do-banco>
+DB_USERNAME=<usuario-postgresql>
+DB_PASSWORD=<senha-postgresql>
 ```
+
+O primeiro usuário `ADMIN` já foi provisionado no banco do CP5. As variáveis `APP_ADMIN_USERNAME`, `APP_ADMIN_PASSWORD` e `APP_ADMIN_NAME` não são necessárias nos próximos deploys e devem permanecer ausentes. O cadastro público cria exclusivamente usuários com perfil `CLIENTE`; a autenticação, o cadastro e as permissões `ADMIN`/`CLIENTE` usam os usuários persistidos no PostgreSQL.
+
+Durante a inicialização, o Flyway consulta `flyway_schema_history`, valida as migrations existentes `V1` e `V2` e não recria tabelas que já foram migradas com sucesso. Em seguida, o Hibernate valida o schema sem alterá-lo.
+
+### Configuração legada Oracle
+
+As antigas variáveis de Render `APP_USERNAME`, `APP_PASSWORD` e a URL JDBC do Oracle pertencem somente ao perfil legado `oracle`. Elas não fazem parte do deploy PostgreSQL do CP5. Não ative os perfis `postgres` e `oracle` simultaneamente.
 
 O Dockerfile usa Java 17, build multi-stage e respeita a porta injetada pelo Render via variável `PORT`, pois a aplicação está configurada com:
 

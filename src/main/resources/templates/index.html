@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org">
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="https://www.thymeleaf.org/extras/spring-security">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,7 +12,13 @@
         <h1>Mercado Express</h1>
         <div class="home-actions">
             <a class="btn btn-primary" th:href="@{/mercado}">Acessar Produtos</a>
-            <a class="btn btn-secondary" th:href="@{/login}">Login</a>
+            <a class="btn btn-secondary" sec:authorize="isAnonymous()" th:href="@{/login}">Login</a>
+            <a class="btn btn-secondary" sec:authorize="isAnonymous()"
+               th:if="${@environment.acceptsProfiles('postgres')}" th:href="@{/registro}">Criar conta</a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post" class="inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn btn-secondary" type="submit">Sair</button>
+            </form>
         </div>
     </section>
 </main>

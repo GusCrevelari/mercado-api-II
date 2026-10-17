@@ -301,6 +301,11 @@ h2 {
     font-weight: 800;
 }
 
+.user-role {
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 0.78rem;
+}
+
 .app-sidebar .btn-outline {
     width: 100%;
     background: rgba(255, 255, 255, 0.12);
@@ -603,6 +608,17 @@ tr:last-child td {
 .auth-intro h1 {
     margin-bottom: var(--space-sm);
     font-size: 1.8rem;
+}
+
+.auth-alternative {
+    margin: var(--space-lg) 0 0;
+    color: var(--color-muted);
+    text-align: center;
+}
+
+.auth-alternative a {
+    color: var(--color-primary);
+    font-weight: 800;
 }
 
 .modal-backdrop {
