@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR" xmlns:th="http://www.thymeleaf.org" xmlns:sec="https://www.thymeleaf.org/extras/spring-security">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Mercado Express</title>
+    <link rel="stylesheet" th:href="@{/css/style.css}">
+</head>
+<body class="app-body">
+<div class="app-shell">
+    <aside class="app-sidebar">
+        <a class="sidebar-brand" th:href="@{/}">
+            <span class="brand-mark">ME</span>
+            <span>Mercado Express</span>
+        </a>
+        <nav class="sidebar-nav">
+            <a class="sidebar-link" th:href="@{/mercado}">Produtos</a>
+            <a class="sidebar-link active" th:href="@{/admin/dashboard}">Dashboard</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-block" sec:authorize="isAuthenticated()">
+                <span class="user-label">Usuario</span>
+                <span class="user-name" sec:authentication="name">admin</span>
+                <span class="user-role">Administrador</span>
+            </div>
+            <form th:action="@{/logout}" method="post" class="inline-form">
+                <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}">
+                <button class="btn btn-outline" type="submit">Sair</button>
+            </form>
+        </div>
+    </aside>
+
+    <main class="app-content">
+        <div class="page-shell dashboard-shell">
+            <section class="page-heading">
+                <div>
+                    <p class="eyebrow">Visao administrativa</p>
+                    <h1>Dashboard</h1>
+                    <p class="page-description">Resultados de vendas, pagamentos e estoque atual.</p>
+                </div>
+            </section>
+
+            <section class="metric-grid" aria-label="Indicadores financeiros e de compras">
+                <article class="metric-card metric-financial">
+                    <span class="metric-label">Receita aprovada</span>
+                    <strong th:text="${'R$ ' + #numbers.formatDecimal(dashboard.receitaTotal, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</strong>
+                    <small>Somente pagamentos aprovados</small>
+                </article>
+                <article class="metric-card metric-financial">
+                    <span class="metric-label">Lucro aprovado</span>
+                    <strong th:text="${'R$ ' + #numbers.formatDecimal(dashboard.lucroTotal, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</strong>
+                    <small>Calculado pelos snapshots dos itens</small>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Aprovadas</span>
+                    <strong th:text="${dashboard.comprasAprovadas}">0</strong>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Pendentes</span>
+                    <strong th:text="${dashboard.comprasPendentes}">0</strong>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-label">Rejeitadas</span>
+                    <strong th:text="${dashboard.comprasRejeitadas}">0</strong>
+                </article>
+            </section>
+
+            <section class="dashboard-section">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Operacao</p>
+                        <h2>Estoque atual</h2>
+                    </div>
+                    <span class="section-count" th:text="${#lists.size(dashboard.inventario) + ' produtos'}">0 produtos</span>
+                </div>
+
+                <div class="content-panel" th:if="${#lists.isEmpty(dashboard.inventario)}">
+                    <div class="empty-state compact-empty">
+                        <h2>Nenhum produto cadastrado</h2>
+                        <p>O inventario sera exibido quando houver produtos.</p>
+                    </div>
+                </div>
+
+                <div class="table-panel" th:unless="${#lists.isEmpty(dashboard.inventario)}">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Produto</th>
+                                <th>Tipo</th>
+                                <th>Setor</th>
+                                <th>Tamanho</th>
+                                <th>Estoque</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="produto : ${dashboard.inventario}">
+                                <td data-label="ID" th:text="${produto.id}">1</td>
+                                <td data-label="Produto" th:text="${produto.nome}">Cafe</td>
+                                <td data-label="Tipo" th:text="${produto.tipo}">Alimento</td>
+                                <td data-label="Setor" th:text="${produto.setor}">Mercearia</td>
+                                <td data-label="Tamanho" th:text="${produto.tamanho}">500 g</td>
+                                <td data-label="Estoque"><strong th:text="${produto.quantidadeEstoque}">0</strong></td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="dashboard-section">
+                <div class="section-heading">
+                    <div>
+                        <p class="eyebrow">Historico</p>
+                        <h2>Compras</h2>
+                    </div>
+                    <span class="section-count" th:text="${#lists.size(dashboard.compras) + ' compras'}">0 compras</span>
+                </div>
+
+                <div class="content-panel" th:if="${#lists.isEmpty(dashboard.compras)}">
+                    <div class="empty-state compact-empty">
+                        <h2>Nenhuma compra registrada</h2>
+                        <p>Os pedidos aparecerao aqui assim que forem criados.</p>
+                    </div>
+                </div>
+
+                <div class="table-panel" th:unless="${#lists.isEmpty(dashboard.compras)}">
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Cliente</th>
+                                <th>Data</th>
+                                <th>Total</th>
+                                <th>Pagamento</th>
+                            </tr>
+                            </thead>
+                            <tbody>
+                            <tr th:each="compra : ${dashboard.compras}">
+                                <td data-label="ID" th:text="${'#' + compra.id}">#1</td>
+                                <td data-label="Cliente" th:text="${compra.cliente}">Cliente</td>
+                                <td data-label="Data" th:text="${compra.data}">01/01/2026 10:00</td>
+                                <td data-label="Total"
+                                    th:text="${compra.moeda + ' ' + #numbers.formatDecimal(compra.total, 1, 'POINT', 2, 'COMMA')}">BRL 0,00</td>
+                                <td data-label="Pagamento">
+                                    <span class="status-badge" th:classappend="${compra.statusCssClass}"
+                                          th:text="${compra.status}">Pendente</span>
+                                </td>
+                            </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+</div>
+</body>
+</html>

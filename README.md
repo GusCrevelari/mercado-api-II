@@ -1,6 +1,10 @@
-# Mercado Express — CP5 Fase 2C
+# Mercado Express — CP5 Fase 2D
 
-O projeto inclui a base concluida da Parte 1, compras e estoque da Fase 2A e a integracao de pagamentos e notificacoes da Fase 2C. O dashboard continua fora desta implementacao.
+O projeto inclui a base concluida da Parte 1, compras e estoque da Fase 2A, a integracao de pagamentos e notificacoes da Fase 2C e o dashboard administrativo da Fase 2D.
+
+## Dashboard administrativo — Fase 2D
+
+Administradores autenticados acessam `GET /admin/dashboard`. A pagina apresenta receita e lucro de compras aprovadas, contagens por status, estoque atual e historico de compras. O lucro usa exclusivamente os snapshots de preco e custo gravados em cada item no momento da compra; alteracoes posteriores no cadastro do produto nao mudam o resultado historico. Usuarios `CLIENTE` recebem `403 Forbidden`, e o link do dashboard nao e renderizado para eles.
 
 ## Pagamento e notificacao — Fase 2C
 

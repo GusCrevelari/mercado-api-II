@@ -17,6 +17,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/", "/login", "/registro", "/css/**", "/images/**", "/webjars/**", "/favicon.ico")
                         .permitAll()
+                        .requestMatchers("/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/mercado/novo", "/mercado/*/editar").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/mercado", "/mercado/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/mercado/**").hasRole("ADMIN")

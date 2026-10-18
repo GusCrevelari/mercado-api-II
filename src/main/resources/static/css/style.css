@@ -107,6 +107,8 @@ h2 {
 .brand,
 .nav-actions,
 .app-shell,
+.page-heading,
+.section-heading,
 .action-row,
 .form-actions,
 .detail-actions {
@@ -396,6 +398,116 @@ h2 {
 
 .page-heading h1 {
     margin: 0;
+}
+
+.page-description {
+    margin: var(--space-sm) 0 0;
+    color: var(--color-muted);
+}
+
+.dashboard-shell {
+    display: grid;
+    gap: var(--space-xl);
+}
+
+.dashboard-shell .page-heading {
+    margin-bottom: 0;
+}
+
+.metric-grid {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: var(--space-md);
+}
+
+.metric-card {
+    grid-column: span 2;
+    min-height: 132px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: var(--space-lg);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.metric-card.metric-financial {
+    grid-column: span 3;
+}
+
+.metric-label {
+    color: var(--color-muted);
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.metric-card strong {
+    margin-top: var(--space-sm);
+    color: var(--color-primary-dark);
+    font-size: 1.8rem;
+    line-height: 1.1;
+}
+
+.metric-card small {
+    margin-top: var(--space-sm);
+    color: var(--color-muted);
+}
+
+.dashboard-section {
+    display: grid;
+    gap: var(--space-md);
+}
+
+.section-heading {
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: var(--space-md);
+}
+
+.section-heading h2 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.section-count {
+    color: var(--color-muted);
+    font-weight: 700;
+}
+
+.compact-empty {
+    padding: var(--space-md) 0;
+}
+
+.compact-empty p {
+    margin-bottom: 0;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 800;
+}
+
+.status-approved {
+    background: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.status-pending {
+    background: #FFF8E1;
+    color: #8A5A00;
+}
+
+.status-rejected {
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
 }
 
 .alert {
@@ -737,6 +849,20 @@ tr:last-child td {
     .form-grid,
     .detail-grid {
         grid-template-columns: 1fr;
+    }
+
+    .metric-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .metric-card,
+    .metric-card.metric-financial {
+        grid-column: span 1;
+    }
+
+    .section-heading {
+        align-items: flex-start;
+        flex-direction: column;
     }
 
     .page-shell,
