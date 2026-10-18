@@ -1,6 +1,21 @@
-# Mercado Express — CP5 Parte 2A
+# Mercado Express — CP5 Fase 2C
 
-O projeto inclui a base concluida da Parte 1 (PostgreSQL, Flyway, usuarios persistidos e autorizacao por perfil) e a fundacao de compras e estoque da Parte 2A. RabbitMQ, integracao HTTP com o Banco Tranquilo, envio de emails e dashboard ainda nao fazem parte desta implementacao.
+O projeto inclui a base concluida da Parte 1, compras e estoque da Fase 2A e a integracao de pagamentos e notificacoes da Fase 2C. O dashboard continua fora desta implementacao.
+
+## Pagamento e notificacao — Fase 2C
+
+Ao criar uma compra, a mesma transacao que reserva estoque e persiste `CP5_COMPRA` cria uma tentativa em `CP5_PAYMENT_OUTBOX`. Um scheduler publica o envelope duravel no RabbitMQ somente depois do commit. Falhas do broker deixam a linha como `PENDING`, com contador, instante e erro da ultima tentativa, para recuperacao automatica sem gerar um novo `paymentAttemptId`.
+
+O consumidor de `mercado.payment.results` valida `paymentAttemptId`, compra, `correlationId`, valor e moeda antes de reutilizar as regras da Fase 2A. `APPROVED` mantem o estoque ja reservado e cria uma unica notificacao; `REJECTED` libera o estoque e nao cria email. Duplicatas terminais nao alteram estoque nem criam outra notificacao. Resultados malformados, desconhecidos ou conflitantes seguem para `mercado.payment.results.dlq`.
+
+O cadastro de novos clientes exige um email valido e separado do login. A V4 deixa o campo nullable somente para compatibilidade com contas legadas. Se uma conta antiga sem email receber aprovacao, a notificacao e registrada como `FAILED` com a causa, sem inventar um destinatario.
+
+O transporte de email usa a interface `EmailTransport`:
+
+- `smtp`, padrao local, envia para Mailpit em `localhost:1025`; a mensagem e apenas capturada localmente em `http://localhost:8025`, nao entregue na internet;
+- `https-api`, preparado para Render Free, envia JSON por HTTPS com bearer token. Nenhum provedor, endpoint ou token real foi configurado nesta fase.
+
+O passo a passo completo de tres aplicacoes e infraestrutura local esta em [docs/phase-2c-local.md](docs/phase-2c-local.md).
 
 ## Configuracao CP5 com PostgreSQL
 
@@ -25,6 +40,7 @@ Nao existem credenciais nem connection strings de fallback no codigo. Confirme q
 - `V1__create_product_schema.sql`: sequence e tabela de produtos;
 - `V2__create_user_schema.sql`: sequence, tabela de usuarios, login unico e perfis permitidos;
 - `V3__create_purchase_and_inventory_schema.sql`: estoque e custo dos produtos, compras, itens e sequences correspondentes.
+- `V4__create_payment_outbox_and_email_notification.sql`: email do cliente, outbox transacional e historico de entrega de notificacoes.
 
 O Hibernate usa `ddl-auto=validate` no PostgreSQL; a estrutura e criada pelo Flyway.
 
@@ -69,7 +85,7 @@ Os testes usam H2 isolado em memoria e nao acessam PostgreSQL, Oracle, DEV ou pr
 .\mvnw.cmd clean package
 ```
 
-Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, compatibilidade do CRUD, compras, calculo de total, reserva/liberacao de estoque, propriedade do cliente e idempotencia do resultado de pagamento.
+Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, compatibilidade do CRUD, compras, estoque, outbox, contratos JSON, resultados de pagamento, duplicatas e entrega/falha de email.
 
 ## Compras e estoque — Fase 2A
 

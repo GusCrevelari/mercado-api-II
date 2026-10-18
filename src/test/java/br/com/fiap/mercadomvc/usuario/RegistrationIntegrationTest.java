@@ -50,23 +50,26 @@ class RegistrationIntegrationTest {
                         .with(csrf())
                         .param("nome", "")
                         .param("login", "ab")
+                        .param("email", "invalido")
                         .param("senha", "curta")
                         .param("confirmacaoSenha", "diferente"))
                 .andExpect(status().isOk())
                 .andExpect(view().name("registro"))
-                .andExpect(model().attributeHasFieldErrors("usuario", "nome", "login", "senha", "senhaConfirmada"));
+                .andExpect(model().attributeHasFieldErrors(
+                        "usuario", "nome", "login", "email", "senha", "senhaConfirmada"));
 
         assertThat(usuarioRepository.count()).isZero();
     }
 
     @Test
     void deveImpedirLoginDuplicadoIgnorandoMaiusculas() throws Exception {
-        cadastrar("Cliente Um", "cliente.teste", "senha-segura");
+        cadastrar("Cliente Um", "cliente.teste", "cliente.um@example.test", "senha-segura");
 
         mockMvc.perform(post("/registro")
                         .with(csrf())
                         .param("nome", "Cliente Dois")
                         .param("login", "CLIENTE.TESTE")
+                        .param("email", "cliente.dois@example.test")
                         .param("senha", "outra-senha")
                         .param("confirmacaoSenha", "outra-senha"))
                 .andExpect(status().isOk())
@@ -84,6 +87,7 @@ class RegistrationIntegrationTest {
                         .with(csrf())
                         .param("nome", "Cliente Teste")
                         .param("login", " Cliente.Teste ")
+                        .param("email", "Cliente.Teste@Example.Test")
                         .param("senha", senhaAberta)
                         .param("confirmacaoSenha", senhaAberta))
                 .andExpect(status().is3xxRedirection())
@@ -92,16 +96,18 @@ class RegistrationIntegrationTest {
         Usuario usuario = usuarioRepository.findByLoginIgnoreCase("cliente.teste").orElseThrow();
         assertThat(usuario.getNome()).isEqualTo("Cliente Teste");
         assertThat(usuario.getLogin()).isEqualTo("cliente.teste");
+        assertThat(usuario.getEmail()).isEqualTo("cliente.teste@example.test");
         assertThat(usuario.getSenha()).isNotEqualTo(senhaAberta);
         assertThat(passwordEncoder.matches(senhaAberta, usuario.getSenha())).isTrue();
         assertThat(usuario.isAtivo()).isTrue();
         assertThat(usuario.getPerfil()).isEqualTo(PerfilUsuario.CLIENTE);
     }
 
-    private void cadastrar(String nome, String login, String senha) {
+    private void cadastrar(String nome, String login, String email, String senha) {
         usuarioRepository.save(Usuario.builder()
                 .nome(nome)
                 .login(login)
+                .email(email)
                 .senha(passwordEncoder.encode(senha))
                 .ativo(true)
                 .perfil(PerfilUsuario.CLIENTE)

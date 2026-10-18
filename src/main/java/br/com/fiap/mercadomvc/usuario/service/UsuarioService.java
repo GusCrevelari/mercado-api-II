@@ -1,6 +1,7 @@
 package br.com.fiap.mercadomvc.usuario.service;
 
 import br.com.fiap.mercadomvc.usuario.dto.UsuarioRegistroForm;
+import br.com.fiap.mercadomvc.usuario.exception.EmailJaExisteException;
 import br.com.fiap.mercadomvc.usuario.exception.UsuarioJaExisteException;
 import br.com.fiap.mercadomvc.usuario.model.PerfilUsuario;
 import br.com.fiap.mercadomvc.usuario.model.Usuario;
@@ -27,10 +28,15 @@ public class UsuarioService {
         if (usuarioRepository.existsByLoginIgnoreCase(login)) {
             throw new UsuarioJaExisteException();
         }
+        String email = form.getEmail().trim().toLowerCase(Locale.ROOT);
+        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+            throw new EmailJaExisteException();
+        }
 
         Usuario usuario = Usuario.builder()
                 .nome(form.getNome().trim())
                 .login(login)
+                .email(email)
                 .senha(passwordEncoder.encode(form.getSenha()))
                 .ativo(true)
                 .perfil(PerfilUsuario.CLIENTE)
@@ -39,6 +45,9 @@ public class UsuarioService {
         try {
             return usuarioRepository.saveAndFlush(usuario);
         } catch (DataIntegrityViolationException ex) {
+            if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+                throw new EmailJaExisteException();
+            }
             throw new UsuarioJaExisteException();
         }
     }

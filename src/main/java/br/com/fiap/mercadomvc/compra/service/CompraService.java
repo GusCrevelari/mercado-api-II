@@ -16,6 +16,8 @@ import br.com.fiap.mercadomvc.compra.pagamento.PaymentProcessingOutcome;
 import br.com.fiap.mercadomvc.compra.pagamento.PaymentStatus;
 import br.com.fiap.mercadomvc.compra.pagamento.dto.PaymentRequest;
 import br.com.fiap.mercadomvc.compra.pagamento.dto.PaymentResult;
+import br.com.fiap.mercadomvc.compra.pagamento.outbox.PaymentOutbox;
+import br.com.fiap.mercadomvc.compra.pagamento.outbox.PaymentOutboxRepository;
 import br.com.fiap.mercadomvc.compra.repository.CompraRepository;
 import br.com.fiap.mercadomvc.exception.MercadoNaoEncontradoException;
 import br.com.fiap.mercadomvc.model.Mercado;
@@ -49,6 +51,7 @@ public class CompraService {
     private final MercadoRepository mercadoRepository;
     private final UsuarioRepository usuarioRepository;
     private final CompraRestMapper mapper;
+    private final PaymentOutboxRepository paymentOutboxRepository;
 
     @Transactional
     public CompraResponse criar(String loginAutenticado, CompraCreateRequest request) {
@@ -105,6 +108,7 @@ public class CompraService {
         itens.values().forEach(compra::adicionarItem);
 
         Compra salva = compraRepository.saveAndFlush(compra);
+        paymentOutboxRepository.save(new PaymentOutbox(salva, UUID.randomUUID(), agora));
         return mapper.toResponse(salva);
     }
 

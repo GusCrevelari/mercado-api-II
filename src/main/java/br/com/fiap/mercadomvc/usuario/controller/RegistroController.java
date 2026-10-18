@@ -1,6 +1,7 @@
 package br.com.fiap.mercadomvc.usuario.controller;
 
 import br.com.fiap.mercadomvc.usuario.dto.UsuarioRegistroForm;
+import br.com.fiap.mercadomvc.usuario.exception.EmailJaExisteException;
 import br.com.fiap.mercadomvc.usuario.exception.UsuarioJaExisteException;
 import br.com.fiap.mercadomvc.usuario.service.UsuarioService;
 import jakarta.validation.Valid;
@@ -38,6 +39,9 @@ public class RegistroController {
             usuarioService.registrarCliente(form);
         } catch (UsuarioJaExisteException ex) {
             bindingResult.rejectValue("login", "usuario.duplicado", ex.getMessage());
+            return "registro";
+        } catch (EmailJaExisteException ex) {
+            bindingResult.rejectValue("email", "email.duplicado", ex.getMessage());
             return "registro";
         }
 

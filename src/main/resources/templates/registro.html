@@ -37,6 +37,12 @@
             </label>
 
             <label class="field">
+                <span>Email</span>
+                <input type="email" th:field="*{email}" maxlength="254" autocomplete="email" required>
+                <small class="field-error" th:if="${#fields.hasErrors('email')}" th:errors="*{email}">Erro</small>
+            </label>
+
+            <label class="field">
                 <span>Usuario</span>
                 <input type="text" th:field="*{login}" minlength="3" maxlength="100" autocomplete="username" required>
                 <small class="field-error" th:if="${#fields.hasErrors('login')}" th:errors="*{login}">Erro</small>

@@ -34,6 +34,9 @@ public class Usuario {
     @Column(name = "LOGIN", nullable = false, unique = true, length = 100)
     private String login;
 
+    @Column(name = "EMAIL", unique = true, length = 254)
+    private String email;
+
     @Column(name = "SENHA", nullable = false, length = 100)
     private String senha;
 

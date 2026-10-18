@@ -1,6 +1,7 @@
 package br.com.fiap.mercadomvc.usuario.dto;
 
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -21,6 +22,11 @@ public class UsuarioRegistroForm {
     @NotBlank(message = "Informe o usuario.")
     @Size(min = 3, max = 100, message = "O usuario deve ter entre 3 e 100 caracteres.")
     private String login;
+
+    @NotBlank(message = "Informe o email.")
+    @Email(message = "Informe um email valido.")
+    @Size(max = 254, message = "O email deve ter no maximo 254 caracteres.")
+    private String email;
 
     @NotBlank(message = "Informe a senha.")
     @Size(min = 8, max = 72, message = "A senha deve ter entre 8 e 72 caracteres.")
