@@ -64,6 +64,14 @@
                 <dt>Preco</dt>
                 <dd th:text="${'R$ ' + #numbers.formatDecimal(mercado.preco, 1, 'POINT', 2, 'COMMA')}">R$ 19,90</dd>
             </div>
+            <div>
+                <dt>Estoque disponivel</dt>
+                <dd th:text="${mercado.quantidadeEstoque}">0</dd>
+            </div>
+            <div sec:authorize="hasRole('ADMIN')" class="price-cell">
+                <dt>Custo de aquisicao</dt>
+                <dd th:text="${'R$ ' + #numbers.formatDecimal(mercado.custoAquisicao, 1, 'POINT', 2, 'COMMA')}">R$ 0,00</dd>
+            </div>
         </dl>
 
         <div class="detail-actions">

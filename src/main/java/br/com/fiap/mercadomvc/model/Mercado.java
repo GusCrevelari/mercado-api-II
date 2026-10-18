@@ -11,6 +11,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import lombok.AllArgsConstructor;
@@ -59,4 +60,25 @@ public class Mercado {
     @Digits(integer = 8, fraction = 2, message = "Use no maximo 8 digitos inteiros e 2 casas decimais.")
     @Column(name = "PRECO", nullable = false, precision = 10, scale = 2)
     private BigDecimal preco;
+
+    @NotNull(message = "Informe a quantidade em estoque.")
+    @PositiveOrZero(message = "A quantidade em estoque nao pode ser negativa.")
+    @Column(name = "QUANTIDADE_ESTOQUE", nullable = false)
+    @Builder.Default
+    private Integer quantidadeEstoque = 0;
+
+    @NotNull(message = "Informe o custo de aquisicao.")
+    @DecimalMin(value = "0.00", message = "O custo de aquisicao nao pode ser negativo.")
+    @Digits(integer = 8, fraction = 2, message = "Use no maximo 8 digitos inteiros e 2 casas decimais.")
+    @Column(name = "CUSTO_AQUISICAO", nullable = false, precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal custoAquisicao = BigDecimal.ZERO;
+
+    public void reservarEstoque(int quantidade) {
+        this.quantidadeEstoque -= quantidade;
+    }
+
+    public void liberarEstoque(int quantidade) {
+        this.quantidadeEstoque += quantidade;
+    }
 }

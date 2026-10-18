@@ -61,6 +61,7 @@
                     <th>Setor</th>
                     <th>Tamanho</th>
                     <th>Preco</th>
+                    <th>Estoque</th>
                     <th>Acoes</th>
                 </tr>
                 </thead>
@@ -71,6 +72,7 @@
                     <td data-label="Setor" th:text="${produto.setor}">Mercearia</td>
                     <td data-label="Tamanho" th:text="${produto.tamanho}">1 kg</td>
                     <td data-label="Preco" th:text="${'R$ ' + #numbers.formatDecimal(produto.preco, 1, 'POINT', 2, 'COMMA')}">R$ 10,00</td>
+                    <td data-label="Estoque" th:text="${produto.quantidadeEstoque}">0</td>
                     <td data-label="Acoes">
                         <div class="action-row">
                             <a class="btn btn-small btn-ghost" th:href="@{/mercado/{id}(id=${produto.id})}">Ver</a>

@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import br.com.fiap.mercadomvc.compra.repository.CompraRepository;
 import br.com.fiap.mercadomvc.repository.MercadoRepository;
 import br.com.fiap.mercadomvc.usuario.model.PerfilUsuario;
 import br.com.fiap.mercadomvc.usuario.model.Usuario;
@@ -41,10 +42,14 @@ class SecurityIntegrationTest {
     private MercadoRepository mercadoRepository;
 
     @Autowired
+    private CompraRepository compraRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @BeforeEach
     void prepararBanco() {
+        compraRepository.deleteAll();
         mercadoRepository.deleteAll();
         usuarioRepository.deleteAll();
     }

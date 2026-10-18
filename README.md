@@ -1,6 +1,6 @@
-# Mercado Express — CP5 Parte 1
+# Mercado Express — CP5 Parte 2A
 
-Esta fase adiciona PostgreSQL, Flyway, cadastro persistido de usuarios e autorizacao por perfil, preservando o CRUD MVC e a API REST de produtos. RabbitMQ, pagamentos, compras, emails e dashboard nao fazem parte desta implementacao.
+O projeto inclui a base concluida da Parte 1 (PostgreSQL, Flyway, usuarios persistidos e autorizacao por perfil) e a fundacao de compras e estoque da Parte 2A. RabbitMQ, integracao HTTP com o Banco Tranquilo, envio de emails e dashboard ainda nao fazem parte desta implementacao.
 
 ## Configuracao CP5 com PostgreSQL
 
@@ -23,7 +23,8 @@ $env:DB_PASSWORD="<senha-local-segura>"
 Nao existem credenciais nem connection strings de fallback no codigo. Confirme que `DB_URL` aponta para o banco local correto antes de iniciar a aplicacao, pois o Flyway executa automaticamente:
 
 - `V1__create_product_schema.sql`: sequence e tabela de produtos;
-- `V2__create_user_schema.sql`: sequence, tabela de usuarios, login unico e perfis permitidos.
+- `V2__create_user_schema.sql`: sequence, tabela de usuarios, login unico e perfis permitidos;
+- `V3__create_purchase_and_inventory_schema.sql`: estoque e custo dos produtos, compras, itens e sequences correspondentes.
 
 O Hibernate usa `ddl-auto=validate` no PostgreSQL; a estrutura e criada pelo Flyway.
 
@@ -68,7 +69,62 @@ Os testes usam H2 isolado em memoria e nao acessam PostgreSQL, Oracle, DEV ou pr
 .\mvnw.cmd clean package
 ```
 
-Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, navegacao por perfil e compatibilidade do CRUD MVC.
+Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, compatibilidade do CRUD, compras, calculo de total, reserva/liberacao de estoque, propriedade do cliente e idempotencia do resultado de pagamento.
+
+## Compras e estoque — Fase 2A
+
+O `ADMIN` informa estoque disponivel e custo de aquisicao ao criar ou editar produtos. O `CLIENTE` consulta o estoque pela API de produtos e cria compras pela API REST. O servidor identifica o cliente pela sessao autenticada e consulta preco e custo no banco; por isso, o JSON de entrada nao aceita login, ID de usuario, preco nem total.
+
+### Endpoints
+
+| Metodo | Rota | Perfil | Funcao |
+| --- | --- | --- | --- |
+| GET | `/api/mercado` | ADMIN, CLIENTE | Consultar produtos e estoque disponivel |
+| POST | `/api/compras` | CLIENTE | Criar uma compra e reservar estoque |
+| GET | `/api/compras` | CLIENTE | Listar somente as compras do cliente autenticado |
+| GET | `/api/compras/{id}` | CLIENTE | Consultar uma compra propria |
+| GET | `/api/compras` | ADMIN | Listar compras de todos os clientes |
+| GET | `/api/compras/{id}` | ADMIN | Consultar qualquer compra |
+
+Exemplo para Postman, autenticado como `CLIENTE`:
+
+```http
+POST /api/compras
+Content-Type: application/json
+```
+
+```json
+{
+  "itens": [
+    {
+      "produtoId": 1,
+      "quantidade": 2
+    },
+    {
+      "produtoId": 2,
+      "quantidade": 1
+    }
+  ]
+}
+```
+
+A resposta `201 Created` contem o cliente obtido da autenticacao, itens com precos capturados no momento da compra, total calculado pelo servidor, moeda `BRL`, status e `correlationId`.
+
+### Ciclo de vida e regras de estoque
+
+1. A criacao bloqueia os registros dos produtos em ordem de ID dentro de uma unica transacao, valida todos os itens e impede quantidade zero, negativa, produto duplicado ou estoque insuficiente.
+2. O estoque disponivel e reduzido ao criar a compra. Essa reducao representa uma reserva e a compra nasce como `PENDING_PAYMENT`.
+3. Um resultado `APPROVED` finaliza a compra sem nova alteracao de estoque, pois a reserva ja consumiu a disponibilidade.
+4. Um resultado `REJECTED` restaura exatamente uma vez as quantidades reservadas.
+5. O processamento bloqueia a compra, confere ID de correlacao, valor e moeda. Repetir o mesmo resultado terminal e ignorado com seguranca; um resultado terminal conflitante e rejeitado.
+
+Preco, custo unitario, nome do produto, total de venda e custo total sao armazenados como snapshots. Assim, alteracoes futuras no produto nao mudam o historico nem o calculo posterior de lucro.
+
+### Preparacao para mensageria e pagamento
+
+Os contratos internos `PaymentRequest` e `PaymentResult` carregam ID da compra, `correlationId`, valor, moeda e status de pagamento sem depender de RabbitMQ ou de um formato externo. Nesta fase eles sao usados somente pelo dominio e nao existe endpoint que aprove compras automaticamente.
+
+O contrato oficial do Banco Tranquilo nao foi encontrado no repositorio. A proxima fase precisa receber ou localizar essa especificacao antes de criar o adaptador HTTP; o formato da API externa nao deve ser inferido a partir destes DTOs internos.
 
 ## Compatibilidade Oracle
 

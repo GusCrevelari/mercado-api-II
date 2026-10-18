@@ -20,7 +20,8 @@ import tools.jackson.databind.JsonNode;
 @RequiredArgsConstructor
 public class MercadoRestMapper {
 
-    private static final Set<String> PATCH_FIELDS = Set.of("nome", "tipo", "setor", "tamanho", "preco");
+    private static final Set<String> PATCH_FIELDS = Set.of(
+            "nome", "tipo", "setor", "tamanho", "preco", "quantidadeEstoque", "custoAquisicao");
 
     private final Validator validator;
 
@@ -31,6 +32,8 @@ public class MercadoRestMapper {
                 .setor(request.setor())
                 .tamanho(request.tamanho())
                 .preco(request.preco())
+                .quantidadeEstoque(request.quantidadeEstoque() == null ? 0 : request.quantidadeEstoque())
+                .custoAquisicao(request.custoAquisicao() == null ? BigDecimal.ZERO : request.custoAquisicao())
                 .build();
     }
 
@@ -41,6 +44,8 @@ public class MercadoRestMapper {
                 .setor(request.setor())
                 .tamanho(request.tamanho())
                 .preco(request.preco())
+                .quantidadeEstoque(request.quantidadeEstoque())
+                .custoAquisicao(request.custoAquisicao())
                 .build();
     }
 
@@ -51,7 +56,8 @@ public class MercadoRestMapper {
                 mercado.getTipo(),
                 mercado.getSetor(),
                 mercado.getTamanho(),
-                mercado.getPreco());
+                mercado.getPreco(),
+                mercado.getQuantidadeEstoque());
     }
 
     public void applyPatch(MercadoPatchRequest request, Mercado mercado) {
@@ -83,6 +89,12 @@ public class MercadoRestMapper {
         }
         if (request.has("preco")) {
             mercado.setPreco(readBigDecimal(request.get("preco"), "preco", fieldErrors));
+        }
+        if (request.has("quantidadeEstoque")) {
+            mercado.setQuantidadeEstoque(readInteger(request.get("quantidadeEstoque"), "quantidadeEstoque", fieldErrors));
+        }
+        if (request.has("custoAquisicao")) {
+            mercado.setCustoAquisicao(readBigDecimal(request.get("custoAquisicao"), "custoAquisicao", fieldErrors));
         }
 
         if (!fieldErrors.isEmpty()) {
@@ -116,6 +128,22 @@ public class MercadoRestMapper {
             }
         }
         fieldErrors.put(field, "Deve ser um numero decimal valido.");
+        return null;
+    }
+
+    private Integer readInteger(JsonNode node, String field, Map<String, String> fieldErrors) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isIntegralNumber() || node.isString()) {
+            try {
+                return Integer.valueOf(node.asString());
+            } catch (NumberFormatException ex) {
+                fieldErrors.put(field, "Deve ser um numero inteiro valido.");
+                return null;
+            }
+        }
+        fieldErrors.put(field, "Deve ser um numero inteiro valido.");
         return null;
     }
 

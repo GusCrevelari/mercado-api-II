@@ -8,5 +8,6 @@ public record MercadoResponse(
         String tipo,
         String setor,
         String tamanho,
-        BigDecimal preco) {
+        BigDecimal preco,
+        Integer quantidadeEstoque) {
 }

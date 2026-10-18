@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import br.com.fiap.mercadomvc.compra.repository.CompraRepository;
 import br.com.fiap.mercadomvc.usuario.model.PerfilUsuario;
 import br.com.fiap.mercadomvc.usuario.model.Usuario;
 import br.com.fiap.mercadomvc.usuario.repository.UsuarioRepository;
@@ -34,8 +35,12 @@ class RegistrationIntegrationTest {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private CompraRepository compraRepository;
+
     @BeforeEach
     void limparUsuarios() {
+        compraRepository.deleteAll();
         usuarioRepository.deleteAll();
     }
 

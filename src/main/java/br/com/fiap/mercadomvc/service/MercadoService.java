@@ -34,25 +34,36 @@ public class MercadoService {
 
     @Transactional
     public Mercado atualizar(Long id, Mercado mercadoAtualizado) {
-        Mercado mercado = buscarPorId(id);
+        Mercado mercado = buscarPorIdComBloqueio(id);
         mercado.setNome(mercadoAtualizado.getNome());
         mercado.setTipo(mercadoAtualizado.getTipo());
         mercado.setSetor(mercadoAtualizado.getSetor());
         mercado.setTamanho(mercadoAtualizado.getTamanho());
         mercado.setPreco(mercadoAtualizado.getPreco());
+        if (mercadoAtualizado.getQuantidadeEstoque() != null) {
+            mercado.setQuantidadeEstoque(mercadoAtualizado.getQuantidadeEstoque());
+        }
+        if (mercadoAtualizado.getCustoAquisicao() != null) {
+            mercado.setCustoAquisicao(mercadoAtualizado.getCustoAquisicao());
+        }
         return mercadoRepository.save(mercado);
     }
 
     @Transactional
     public Mercado atualizarParcial(Long id, Consumer<Mercado> atualizacao) {
-        Mercado mercado = buscarPorId(id);
+        Mercado mercado = buscarPorIdComBloqueio(id);
         atualizacao.accept(mercado);
         return mercadoRepository.save(mercado);
     }
 
     @Transactional
     public void excluir(Long id) {
-        Mercado mercado = buscarPorId(id);
+        Mercado mercado = buscarPorIdComBloqueio(id);
         mercadoRepository.delete(mercado);
+    }
+
+    private Mercado buscarPorIdComBloqueio(Long id) {
+        return mercadoRepository.buscarPorIdComBloqueio(id)
+                .orElseThrow(() -> new MercadoNaoEncontradoException(id));
     }
 }

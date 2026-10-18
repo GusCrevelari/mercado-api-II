@@ -4,6 +4,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 
@@ -27,5 +28,12 @@ public record MercadoCreateRequest(
         @NotNull(message = "Informe o preco do produto.")
         @DecimalMin(value = "0.01", message = "O preco deve ser maior que zero.")
         @Digits(integer = 8, fraction = 2, message = "Use no maximo 8 digitos inteiros e 2 casas decimais.")
-        BigDecimal preco) {
+        BigDecimal preco,
+
+        @PositiveOrZero(message = "A quantidade em estoque nao pode ser negativa.")
+        Integer quantidadeEstoque,
+
+        @DecimalMin(value = "0.00", message = "O custo de aquisicao nao pode ser negativo.")
+        @Digits(integer = 8, fraction = 2, message = "Use no maximo 8 digitos inteiros e 2 casas decimais.")
+        BigDecimal custoAquisicao) {
 }

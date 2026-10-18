@@ -27,6 +27,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/mercado/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PATCH, "/api/mercado/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/mercado/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/compras").hasRole("CLIENTE")
+                        .requestMatchers(HttpMethod.GET, "/api/compras", "/api/compras/*")
+                        .hasAnyRole("ADMIN", "CLIENTE")
                         .anyRequest().authenticated())
                 .csrf(csrf -> csrf
                         // JSON clients such as Postman do not receive Thymeleaf CSRF tokens.
