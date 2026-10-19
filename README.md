@@ -1,119 +1,110 @@
-# Mercado Express — CP5 Fase 2E
+# Mercado Express
 
-O projeto inclui a base concluida da Parte 1, compras e estoque da Fase 2A, a integracao de pagamentos e notificacoes da Fase 2C e o dashboard administrativo com graficos da Fase 2E.
+## Visão geral
 
-## Dashboard administrativo — Fase 2E
+Mercado Express é uma aplicação Java para gerenciamento de produtos, estoque, compras e pagamentos. A interface web utiliza Spring MVC e Thymeleaf, enquanto APIs REST permitem consultar produtos e operar o fluxo de compras. Autenticação e autorização são persistidas no banco de dados, com permissões distintas para administradores e clientes.
 
-Administradores autenticados acessam `GET /admin/dashboard`. A pagina apresenta receita e lucro de compras aprovadas, contagens por status, estoque atual e historico de compras. Graficos SVG renderizados pelo servidor representam receita/lucro e estoque sem JavaScript externo ou CDN. O lucro usa exclusivamente os snapshots de preco e custo gravados em cada item no momento da compra; alteracoes posteriores no cadastro do produto nao mudam o resultado historico. Usuarios `CLIENTE` recebem `403 Forbidden`, e o link do dashboard nao e renderizado para eles.
+O processamento financeiro é assíncrono: a aplicação publica solicitações no RabbitMQ, um microsserviço independente consulta o Banco Tranquilo — uma API REST simulada para fins acadêmicos — e o resultado retorna ao Mercado Express. Compras aprovadas geram uma confirmação por e-mail e alimentam um dashboard administrativo com indicadores e gráficos.
 
-O roteiro final de execucao, Postman, evidencias SQL, paridade deterministica e validacao de duplicatas esta em [docs/phase-2e-demo.md](docs/phase-2e-demo.md). A colecao importavel esta em [postman/phase-2e-e2e.postman_collection.json](postman/phase-2e-e2e.postman_collection.json).
+## Principais funcionalidades
 
-## Pagamento e notificacao — Fase 2C
+- CRUD de produtos com Spring MVC, Thymeleaf e validação de formulários.
+- API REST de produtos com respostas HATEOAS.
+- Login personalizado com Spring Security e senhas protegidas por BCrypt.
+- Cadastro de clientes com login e endereço de e-mail distintos.
+- Perfis `ADMIN` e `CLIENTE`, com autorização aplicada no servidor.
+- Controle de quantidade em estoque, preço de venda e custo de aquisição.
+- Criação transacional de compras e reserva de estoque com bloqueio pessimista.
+- Snapshots imutáveis de nome, preço e custo dos itens comprados.
+- Integração assíncrona de pagamentos com RabbitMQ e outbox transacional.
+- Tratamento idempotente de resultados `APPROVED` e `REJECTED`.
+- Liberação automática da reserva de estoque em pagamentos rejeitados.
+- Confirmação de pagamento por e-mail e histórico de tentativas no PostgreSQL.
+- Dashboard exclusivo para administradores, com métricas financeiras, inventário, compras e gráficos SVG.
 
-Ao criar uma compra, a mesma transacao que reserva estoque e persiste `CP5_COMPRA` cria uma tentativa em `CP5_PAYMENT_OUTBOX`. Um scheduler publica o envelope duravel no RabbitMQ somente depois do commit. Falhas do broker deixam a linha como `PENDING`, com contador, instante e erro da ultima tentativa, para recuperacao automatica sem gerar um novo `paymentAttemptId`.
+## Arquitetura e fluxo de pagamento
 
-O consumidor de `mercado.payment.results` valida `paymentAttemptId`, compra, `correlationId`, valor e moeda antes de reutilizar as regras da Fase 2A. `APPROVED` mantem o estoque ja reservado e cria uma unica notificacao; `REJECTED` libera o estoque e nao cria email. Duplicatas terminais nao alteram estoque nem criam outra notificacao. Resultados malformados, desconhecidos ou conflitantes seguem para `mercado.payment.results.dlq`.
+Os três projetos são aplicações Spring Boot independentes. O Mercado Express mantém o domínio de produtos, usuários, compras, estoque, notificações e dashboard; o Payment Service integra a mensageria ao simulador bancário.
 
-O cadastro de novos clientes exige um email valido e separado do login. A V4 deixa o campo nullable somente para compatibilidade com contas legadas. Se uma conta antiga sem email receber aprovacao, a notificacao e registrada como `FAILED` com a causa, sem inventar um destinatario.
+```text
+CLIENTE
+   |
+   | POST /api/compras
+   v
+Mercado API II ---- transação ----> PostgreSQL
+   |                                  | compra + itens
+   |                                  | reserva de estoque
+   |                                  | payment outbox
+   |
+   +---- RabbitMQ: payment.request ----> Mercado Payment Service
+                                              |
+                                              | REST local
+                                              v
+                                   Banco Tranquilo Simulator
+                                              |
+   <---- RabbitMQ: payment.result <-----------+
+   |
+   +---- APPROVED: finaliza compra e agenda confirmação por e-mail
+   +---- REJECTED: finaliza compra e restaura a reserva de estoque
+   |
+   +---- PostgreSQL: histórico de notificação
+   +---- Mailpit local: captura da mensagem
 
-O transporte de email usa a interface `EmailTransport`:
-
-- `smtp`, padrao local, envia para Mailpit em `localhost:1025`; a mensagem e apenas capturada localmente em `http://localhost:8025`, nao entregue na internet;
-- `https-api`, preparado para Render Free, envia JSON por HTTPS com bearer token. Nenhum provedor, endpoint ou token real foi configurado nesta fase.
-
-O passo a passo completo de tres aplicacoes e infraestrutura local esta em [docs/phase-2c-local.md](docs/phase-2c-local.md).
-
-## Configuracao CP5 com PostgreSQL
-
-O perfil `postgres` habilita as migrations e a autenticacao pelo banco. Crie um banco local vazio e um usuario proprio. Exemplo para `psql`, substituindo o valor indicado por uma senha local:
-
-```sql
-CREATE ROLE mercado_cp5_app LOGIN PASSWORD '<senha-local-segura>';
-CREATE DATABASE mercado_cp5 OWNER mercado_cp5_app;
+ADMIN ----> Dashboard MVC ----> receita, lucro, compras e estoque
 ```
 
-Configure somente a sessao atual do PowerShell:
+A criação da compra e do registro de outbox ocorre na mesma transação. A publicação só é marcada como concluída após a confirmação do broker, mantendo o mesmo `paymentAttemptId` em novas tentativas. O consumidor valida compra, correlação, valor e moeda antes de aplicar o resultado. Mensagens duplicadas não alteram o estoque nem geram uma segunda notificação.
 
-```powershell
-$env:SPRING_PROFILES_ACTIVE="postgres"
-$env:DB_URL="jdbc:postgresql://localhost:5432/mercado_cp5"
-$env:DB_USERNAME="mercado_cp5_app"
-$env:DB_PASSWORD="<senha-local-segura>"
-```
+## Tecnologias utilizadas
 
-Nao existem credenciais nem connection strings de fallback no codigo. Confirme que `DB_URL` aponta para o banco local correto antes de iniciar a aplicacao, pois o Flyway executa automaticamente:
+- Java 17 e Maven Wrapper.
+- Spring Boot 4.1.1 no Mercado Express.
+- Spring MVC, Thymeleaf e Thymeleaf Spring Security Extras.
+- Spring Security e BCrypt.
+- Spring Data JPA, Hibernate e Bean Validation.
+- Spring HATEOAS.
+- Spring AMQP e RabbitMQ Management.
+- Spring Mail, SMTP local e transporte configurável por API HTTPS.
+- PostgreSQL 17 e Flyway.
+- H2 nos testes automatizados.
+- Mailpit para captura local de e-mails.
+- Docker e Docker Compose para a infraestrutura local.
+- Lombok.
+- Oracle JDBC para compatibilidade com o ambiente legado de produtos.
 
-- `V1__create_product_schema.sql`: sequence e tabela de produtos;
-- `V2__create_user_schema.sql`: sequence, tabela de usuarios, login unico e perfis permitidos;
-- `V3__create_purchase_and_inventory_schema.sql`: estoque e custo dos produtos, compras, itens e sequences correspondentes.
-- `V4__create_payment_outbox_and_email_notification.sql`: email do cliente, outbox transacional e historico de entrega de notificacoes.
+Configuração inicial do projeto:
 
-O Hibernate usa `ddl-auto=validate` no PostgreSQL; a estrutura e criada pelo Flyway.
+![Configuração do projeto no Spring Initializr](docs/images/spring-initializr.png)
 
-### Provisionamento do primeiro ADMIN
+## Perfis e permissões
 
-Nao existe cadastro publico de administrador. Para criar o primeiro `ADMIN`, defina antes da primeira inicializacao:
-
-```powershell
-$env:APP_ADMIN_USERNAME="<login-administrador>"
-$env:APP_ADMIN_PASSWORD="<senha-administrador-segura>"
-$env:APP_ADMIN_NAME="<nome-administrador>"
-```
-
-O provisionador cria a conta somente se o login nao existir. Ele nao eleva uma conta `CLIENTE` existente e nao substitui a senha de um administrador ja persistido. Depois do provisionamento inicial, essas variaveis podem ser removidas do ambiente.
-
-### Execucao PostgreSQL
-
-```powershell
-.\mvnw.cmd spring-boot:run
-```
-
-A aplicacao fica em `http://localhost:8082`. `/registro` e publico apenas no perfil PostgreSQL; toda conta criada nessa pagina recebe obrigatoriamente o perfil `CLIENTE`.
-
-### Perfis e permissoes
-
-| Acao | ADMIN | CLIENTE |
+| Recurso | ADMIN | CLIENTE |
 | --- | --- | --- |
-| Listar e ver produtos | Sim | Sim |
-| Criar produtos | Sim | Nao |
-| Atualizar produtos | Sim | Nao |
-| Excluir produtos | Sim | Nao |
-| Mutacoes na API REST | Sim | Nao |
+| Consultar produtos e estoque | Sim | Sim |
+| Criar, editar e excluir produtos | Sim | Não |
+| Consultar custo de aquisição na interface | Sim | Não |
+| Criar compra | Não | Sim |
+| Consultar compras | Todas | Somente as próprias |
+| Acessar o dashboard financeiro | Sim | Não |
+| Criar conta pelo formulário público | Não aplicável | Sim |
 
-As permissoes sao aplicadas pelo Spring Security no servidor. Os controles administrativos tambem sao removidos do HTML do cliente; tentativas autenticadas sem permissao retornam `403 Forbidden`.
+O cadastro público sempre cria usuários `CLIENTE`. A conta administrativa pode ser provisionada na inicialização por variáveis de ambiente e nunca é criada pelo formulário público. Rotas MVC permanecem protegidas por CSRF; as rotas JSON `/api/**` exigem sessão autenticada, mas são isentas de CSRF para clientes como o Postman.
 
-### Testes
+## Endpoints REST e exemplo de compra
 
-Os testes usam H2 isolado em memoria e nao acessam PostgreSQL, Oracle, DEV ou producao:
-
-```powershell
-.\mvnw.cmd clean test
-.\mvnw.cmd clean package
-```
-
-Eles cobrem validacao e duplicidade no cadastro, BCrypt, autenticacao persistida, autorizacao MVC/REST, compatibilidade do CRUD, compras, estoque, outbox, contratos JSON, resultados de pagamento, duplicatas e entrega/falha de email.
-
-## Compras e estoque — Fase 2A
-
-O `ADMIN` informa estoque disponivel e custo de aquisicao ao criar ou editar produtos. O `CLIENTE` consulta o estoque pela API de produtos e cria compras pela API REST. O servidor identifica o cliente pela sessao autenticada e consulta preco e custo no banco; por isso, o JSON de entrada nao aceita login, ID de usuario, preco nem total.
-
-### Endpoints
-
-| Metodo | Rota | Perfil | Funcao |
+| Método | Rota | Acesso | Finalidade |
 | --- | --- | --- | --- |
-| GET | `/api/mercado` | ADMIN, CLIENTE | Consultar produtos e estoque disponivel |
-| POST | `/api/compras` | CLIENTE | Criar uma compra e reservar estoque |
-| GET | `/api/compras` | CLIENTE | Listar somente as compras do cliente autenticado |
-| GET | `/api/compras/{id}` | CLIENTE | Consultar uma compra propria |
-| GET | `/api/compras` | ADMIN | Listar compras de todos os clientes |
-| GET | `/api/compras/{id}` | ADMIN | Consultar qualquer compra |
+| `GET` | `/api/mercado` | ADMIN, CLIENTE | Lista produtos e estoque. |
+| `GET` | `/api/mercado/{id}` | ADMIN, CLIENTE | Consulta um produto. |
+| `POST` | `/api/mercado` | ADMIN | Cadastra um produto. |
+| `PUT` | `/api/mercado/{id}` | ADMIN | Substitui os dados do produto. |
+| `PATCH` | `/api/mercado/{id}` | ADMIN | Atualiza campos do produto. |
+| `DELETE` | `/api/mercado/{id}` | ADMIN | Exclui um produto. |
+| `POST` | `/api/compras` | CLIENTE | Cria a compra e reserva o estoque. |
+| `GET` | `/api/compras` | ADMIN, CLIENTE | ADMIN lista todas; CLIENTE lista somente as próprias. |
+| `GET` | `/api/compras/{id}` | ADMIN, CLIENTE | Consulta uma compra respeitando a propriedade do cliente. |
 
-Exemplo para Postman, autenticado como `CLIENTE`:
-
-```http
-POST /api/compras
-Content-Type: application/json
-```
+O servidor identifica o cliente pela sessão e obtém preço e custo diretamente do banco. O corpo não recebe login, usuário, preço ou total:
 
 ```json
 {
@@ -130,477 +121,208 @@ Content-Type: application/json
 }
 ```
 
-A resposta `201 Created` contem o cliente obtido da autenticacao, itens com precos capturados no momento da compra, total calculado pelo servidor, moeda `BRL`, status e `correlationId`.
+A resposta `201 Created` contém os itens, total calculado pelo servidor, moeda `BRL`, status inicial `PENDING_PAYMENT` e `correlationId`.
 
-### Ciclo de vida e regras de estoque
+Principais rotas MVC:
 
-1. A criacao bloqueia os registros dos produtos em ordem de ID dentro de uma unica transacao, valida todos os itens e impede quantidade zero, negativa, produto duplicado ou estoque insuficiente.
-2. O estoque disponivel e reduzido ao criar a compra. Essa reducao representa uma reserva e a compra nasce como `PENDING_PAYMENT`.
-3. Um resultado `APPROVED` finaliza a compra sem nova alteracao de estoque, pois a reserva ja consumiu a disponibilidade.
-4. Um resultado `REJECTED` restaura exatamente uma vez as quantidades reservadas.
-5. O processamento bloqueia a compra, confere ID de correlacao, valor e moeda. Repetir o mesmo resultado terminal e ignorado com seguranca; um resultado terminal conflitante e rejeitado.
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/`, `/login`, `/registro` | Público |
+| `POST` | `/registro` | Público, perfil PostgreSQL |
+| `GET` | `/mercado`, `/mercado/{id}` | ADMIN, CLIENTE |
+| `GET` | `/mercado/novo`, `/mercado/{id}/editar` | ADMIN |
+| `POST/PUT/DELETE` | Criação, atualização e exclusão em `/mercado/**` | ADMIN |
+| `GET` | `/admin/dashboard` | ADMIN |
 
-Preco, custo unitario, nome do produto, total de venda e custo total sao armazenados como snapshots. Assim, alteracoes futuras no produto nao mudam o historico nem o calculo posterior de lucro.
+## PostgreSQL e Flyway
 
-### Preparacao para mensageria e pagamento
+O perfil `postgres` usa `ddl-auto=validate`; toda alteração estrutural é controlada pelo Flyway:
 
-Os contratos internos `PaymentRequest` e `PaymentResult` carregam ID da compra, `correlationId`, valor, moeda e status de pagamento sem depender de RabbitMQ ou de um formato externo. Nesta fase eles sao usados somente pelo dominio e nao existe endpoint que aprove compras automaticamente.
+| Migration | Estrutura principal |
+| --- | --- |
+| `V1__create_product_schema.sql` | Produto, preço e sequência. |
+| `V2__create_user_schema.sql` | Usuários, login, senha, estado e perfil. |
+| `V3__create_purchase_and_inventory_schema.sql` | Estoque, custo de aquisição, compras, itens, snapshots, status e correlação. |
+| `V4__create_payment_outbox_and_email_notification.sql` | E-mail do usuário, outbox de pagamento e histórico de notificações. |
 
-O contrato oficial do Banco Tranquilo nao foi encontrado no repositorio. A proxima fase precisa receber ou localizar essa especificacao antes de criar o adaptador HTTP; o formato da API externa nao deve ser inferido a partir destes DTOs internos.
+Tabelas principais:
 
-## Compatibilidade Oracle
+- `TDS_MVC_TB_MERCADO`: cadastro, preço, custo e estoque atual.
+- `CP5_USUARIO`: identidade, e-mail, credencial BCrypt e perfil.
+- `CP5_COMPRA`: cliente, totais, moeda, status, correlação e datas.
+- `CP5_COMPRA_ITEM`: quantidades e snapshots de venda e aquisição.
+- `CP5_PAYMENT_OUTBOX`: tentativa estável de pagamento, estado de publicação e erros.
+- `CP5_EMAIL_NOTIFICATION`: destinatário, tipo, estado, tentativas, envio e falha.
 
-`oracle` permanece como perfil padrao ate que o cutover seja aprovado. Ele mantem o CRUD existente e a autenticacao administrativa legada, agora obrigatoriamente configurada por ambiente. Flyway e cadastro publico ficam desabilitados, e nenhuma tabela Oracle e criada ou alterada.
+O perfil `oracle` mantém compatibilidade com a tabela legada de produtos descrita em [`docs/database/oracle-schema.sql`](docs/database/oracle-schema.sql). Nesse perfil o Flyway permanece desabilitado e as credenciais são fornecidas exclusivamente por ambiente.
+
+## Instalação e execução local
+
+### Pré-requisitos
+
+- JDK 17 configurado em `JAVA_HOME`.
+- Docker Desktop com Docker Compose.
+- Git.
+
+Clone os três repositórios no mesmo diretório pai:
 
 ```powershell
-$env:SPRING_PROFILES_ACTIVE="oracle"
-$env:DB_URL="<jdbc-url-oracle>"
-$env:DB_USERNAME="<usuario-oracle>"
-$env:DB_PASSWORD="<senha-oracle>"
-$env:APP_USERNAME="<login-administrativo-legado>"
-$env:APP_PASSWORD="<senha-administrativa-legada>"
+git clone https://github.com/GusCrevelari/mercado-api-II.git
+git clone https://github.com/GusCrevelari/mercado-payment-service.git
+git clone https://github.com/GusCrevelari/banco-tranquilo-simulator.git
 ```
 
-Nenhuma infraestrutura de producao foi alterada nesta fase.
-
-## Documentacao historica do CP4
-
-## Sobre o projeto
-
-Mercado Express é uma aplicação Spring MVC desenvolvida para o **FIAP Java Advanced — Checkpoint 4 Parte II: Spring MVC, Security e Deploy**.
-
-O sistema permite que usuários autenticados gerenciem produtos de mercado por uma interface web renderizada com **Spring MVC + Thymeleaf**. Os dados são persistidos em banco **Oracle** por meio de Spring Data JPA, e as rotas privadas são protegidas com Spring Security.
-
-## Requisitos
-
-- Spring Boot 4.1.1
-- Maven
-- Java 17
-- Spring MVC com `@Controller`
-- Thymeleaf
-- CRUD web completo
-- Persistência em Oracle
-- Spring Security com rotas públicas e privadas
-- Lombok
-- Bean Validation
-- Projeto preparado para deploy com Docker no Render
-- API REST adicional com DTOs, validação, tratamento de erros e HATEOAS
-
-A API REST/HATEOAS é uma funcionalidade adicional para demonstrar conceitos praticados na Parte I. A entrega principal da Parte II continua sendo a aplicação MVC com Thymeleaf e Spring Security.
-
-## Tecnologias utilizadas
-
-- Java 17
-- Spring Boot 4.1.1
-- Spring Web MVC
-- Thymeleaf
-- Spring Data JPA
-- Oracle JDBC Driver
-- Spring Security
-- Spring HATEOAS
-- Bean Validation
-- Lombok
-- Maven
-- Docker
-
-## Arquitetura
-
-Fluxo principal da aplicação web:
-
-```text
-Browser
-   ↓
-Spring Security
-   ↓
-MVC Controller
-   ↓
-Service
-   ↓
-Repository
-   ↓
-Oracle
-```
-
-Renderização HTML:
-
-```text
-MVC Controller
-   ↓
-Thymeleaf
-   ↓
-HTML
-```
-
-Fluxo adicional da API REST:
-
-```text
-REST Client
-   ↓
-REST Controller
-   ↓
-Service
-   ↓
-Repository
-   ↓
-Oracle
-```
-
-## Banco de dados Oracle
-
-O projeto usa os objetos Oracle definidos em [docs/database/oracle-schema.sql](docs/database/oracle-schema.sql).
-
-Tabela:
-
-```text
-TDS_MVC_TB_MERCADO
-```
-
-Sequence:
-
-```text
-TDS_MVC_SEQ_MERCADO
-```
-
-Campos persistidos:
-
-| Campo | Tipo Java | Observação |
-| ----- | --------- | ---------- |
-| `id` | `Long` | Chave primária gerada pela sequence |
-| `nome` | `String` | Obrigatório, até 120 caracteres |
-| `tipo` | `String` | Obrigatório, até 50 caracteres |
-| `setor` | `String` | Obrigatório, até 80 caracteres |
-| `tamanho` | `String` | Obrigatório, até 40 caracteres |
-| `preco` | `BigDecimal` | Obrigatório, maior que zero, escala de 2 casas |
-
-A aplicação usa `spring.jpa.hibernate.ddl-auto=validate`, portanto não cria nem altera a estrutura do banco automaticamente.
-
-## Interface Web com Thymeleaf
-
-A rota `/` é pública e apresenta uma página inicial simples com acesso à área de produtos e à tela de login.
-
-<p align="center">
-  <img src="docs/images/2-home.png"
-       width="900"
-       alt="Página inicial pública do Mercado Express">
-</p>
-<p align="center">
-  <sub>Página inicial pública da aplicação.</sub>
-</p>
-
-A interface browser-facing usa templates Thymeleaf em `src/main/resources/templates` e recursos como `th:text`, `th:each`, `th:object`, `th:field`, `th:action`, `th:if` e `th:errors`.
-
-## Segurança com Spring Security
-
-A rota `/login` é pública. As rotas `/mercado/**` são privadas, e usuários não autenticados são redirecionados naturalmente para a tela de login antes de acessar a gestão de produtos.
-
-<p align="center">
-  <img src="docs/images/1-login.png"
-       width="900"
-       alt="Tela de login do Mercado Express">
-</p>
-<p align="center">
-  <sub>Tela pública de autenticação com formulário do Spring Security.</sub>
-</p>
-
-Rotas públicas:
-
-- `/`
-- `/login`
-- assets estáticos em `/css/**`, `/images/**`, `/webjars/**` e `/favicon.ico`
-- leitura REST em `GET /api/mercado` e `GET /api/mercado/{id}`
-
-Rotas privadas:
-
-- `/mercado/**`
-- mutações REST em `/api/mercado/**`
-
-A autenticação usa login por formulário do Spring Security. O logout é feito por `POST /logout`, com token CSRF nos formulários Thymeleaf.
-
-As credenciais legadas nao possuem mais valores padrao e devem ser fornecidas por variaveis de ambiente.
-## CRUD
-
-Todas as operações do CRUD usam a tabela `TDS_MVC_TB_MERCADO` por meio do `MercadoService` e `MercadoRepository`.
-
-### CREATE — Novo produto
-
-O usuário acessa **Novo Produto**, preenche o formulário e envia `POST /mercado`. O formulário Thymeleaf recebe `nome`, `tipo`, `setor`, `tamanho` e `preco`, com Bean Validation aplicada aos campos.
-
-<p align="center">
-  <img src="docs/images/05-novo-produto.png"
-       width="900"
-       alt="Formulário de criação de produto">
-</p>
-<p align="center">
-  <sub>Formulário MVC para cadastro de produto.</sub>
-</p>
-
-Após a validação bem-sucedida, o fluxo é:
-
-```text
-Controller
-→ Service
-→ Repository
-→ Oracle
-```
-
-A interface retorna para a listagem e mostra o estado de sucesso.
-
-<p align="center">
-  <img src="docs/images/05-produto-criado.png"
-       width="900"
-       alt="Produto criado com sucesso na listagem">
-</p>
-<p align="center">
-  <sub>Produto criado e persistido no Oracle.</sub>
-</p>
-
-### READ — Listagem de produtos
-
-A listagem aparece em `GET /mercado`. O Thymeleaf renderiza a coleção retornada do Oracle e expõe as ações **Novo Produto**, **Ver**, **Editar** e **Excluir**.
-
-<p align="center">
-  <img src="docs/images/03-produtos.png"
-       width="900"
-       alt="Listagem de produtos do Mercado Express">
-</p>
-<p align="center">
-  <sub>Lista de produtos renderizada com Thymeleaf.</sub>
-</p>
-
-### READ — Detalhes do produto
-
-`GET /mercado/{id}` carrega um único produto e renderiza seus valores através do Thymeleaf.
-
-<p align="center">
-  <img src="docs/images/06-detalhes.png"
-       width="900"
-       alt="Tela de detalhes de um produto">
-</p>
-<p align="center">
-  <sub>Detalhes de um produto carregado pelo ID.</sub>
-</p>
-
-### UPDATE — Editar produto
-
-Ao acessar **Editar**, os valores existentes são carregados, o formulário é preenchido e o envio atualiza o mesmo registro Oracle com `PUT /mercado/{id}` usando o filtro de método oculto do Spring MVC.
-
-<p align="center">
-  <img src="docs/images/07-editar-produto.png"
-       width="900"
-       alt="Formulário de edição de produto">
-</p>
-<p align="center">
-  <sub>Formulário preenchido com os dados atuais do produto.</sub>
-</p>
-
-Após a atualização, o produto permanece salvo no Oracle com os novos valores.
-
-<p align="center">
-  <img src="docs/images/08-produto-atualizado.png"
-       width="900"
-       alt="Produto atualizado com sucesso">
-</p>
-<p align="center">
-  <sub>Produto atualizado e persistido.</sub>
-</p>
-
-### DELETE — Excluir produto
-
-O usuário aciona **Excluir**, confirma a ação em um modal customizado e a remoção é enviada como `DELETE /mercado/{id}`. O formulário original mantém `_method=delete`, o token CSRF continua habilitado e o registro é removido do Oracle.
-
-Não há screenshot de exclusão confirmado atualmente em `docs/images/`.
-
-## Rotas MVC
-
-| Método | Rota | Função |
-| ------ | ---- | ------ |
-| GET | `/` | Home pública |
-| GET | `/login` | Página de login |
-| GET | `/mercado` | Listar produtos |
-| GET | `/mercado/novo` | Formulário de criação |
-| POST | `/mercado` | Criar produto |
-| GET | `/mercado/{id}` | Detalhes do produto |
-| GET | `/mercado/{id}/editar` | Formulário de edição |
-| PUT | `/mercado/{id}` | Atualizar produto |
-| DELETE | `/mercado/{id}` | Excluir produto |
-
-## API REST adicional
-
-A API REST fica em `/api/mercado` e usa DTOs específicos, sem expor diretamente a entidade JPA.
-
-| Método | Rota | Função |
-| ------ | ---- | ------ |
-| GET | `/api/mercado` | Listar produtos |
-| GET | `/api/mercado/{id}` | Buscar produto por ID |
-| POST | `/api/mercado` | Criar produto |
-| PUT | `/api/mercado/{id}` | Atualizar produto completo |
-| PATCH | `/api/mercado/{id}` | Atualizar campos parcialmente |
-| DELETE | `/api/mercado/{id}` | Excluir produto |
-
-O `PATCH` implementa atualização parcial verdadeira. Por exemplo, enviar apenas:
-
-```json
-{
-  "preco": 6.49
-}
-```
-
-altera somente o campo `preco`.
-
-## HATEOAS
-
-As respostas REST usam Spring HATEOAS com `RepresentationModelAssembler`, `EntityModel`, `CollectionModel`, `linkTo` e `methodOn`.
-
-Exemplo simplificado de recurso:
-
-```json
-{
-  "id": 1,
-  "nome": "Café especial",
-  "tipo": "Bebida",
-  "setor": "Mercearia",
-  "tamanho": "500 g",
-  "preco": 19.90,
-  "_links": {
-    "self": {
-      "href": "http://host/api/mercado/1"
-    },
-    "collection": {
-      "href": "http://host/api/mercado"
-    }
-  }
-}
-```
-
-Links:
-
-- `self`: recurso atual
-- `collection`: coleção completa de produtos
-
-## Validação e tratamento de erros
-
-A entidade e os DTOs validam campos obrigatórios, tamanho máximo e preço.
-
-Na interface MVC, erros de formulário são exibidos no próprio template com `th:errors`.
-
-Na API REST, erros de validação retornam `400 Bad Request` em JSON, e produtos inexistentes retornam `404 Not Found` em JSON. A página MVC continua usando a tela amigável `mercado/nao-encontrado.html`.
-
-## Configuração do Spring Initializr
-
-O projeto foi criado com as dependências necessárias para MVC, Thymeleaf, JPA, Oracle, Security, Validation e Lombok.
-
-<p align="center">
-  <img src="docs/images/spring-initializr.png"
-       width="900"
-       alt="Configuração final do Spring Initializr">
-</p>
-<p align="center">
-  <sub>Configuração final usada no Spring Initializr.</sub>
-</p>
-
-## Como executar localmente
-
-Clone o repositório:
+O Compose está no repositório `mercado-payment-service`. Configure credenciais apenas na sessão local e inicie PostgreSQL, RabbitMQ e Mailpit:
 
 ```powershell
-git clone git@github.com:GusCrevelari/mercado-api-II.git
-cd mercado-api-II
+cd mercado-payment-service
+$env:POSTGRES_DB="mercado_cp5"
+$env:POSTGRES_USER="mercado_cp5_app"
+$env:POSTGRES_PASSWORD="<senha-postgres-local>"
+$env:RABBITMQ_USERNAME="<usuario-rabbit-local>"
+$env:RABBITMQ_PASSWORD="<senha-rabbit-local>"
+docker compose up -d
+docker compose ps
 ```
 
-Configure as variáveis de ambiente:
+Terminal do Banco Tranquilo:
 
 ```powershell
-$env:SPRING_PROFILES_ACTIVE="oracle"
-$env:DB_URL="<jdbc-url-oracle>"
-$env:DB_USERNAME="<usuario-oracle>"
-$env:DB_PASSWORD="<senha-oracle>"
-$env:APP_USERNAME="<login-administrativo-legado>"
-$env:APP_PASSWORD="<senha-administrativa-legada>"
-```
-
-Execute:
-
-```powershell
+cd banco-tranquilo-simulator
+$env:PORT="8091"
 .\mvnw.cmd spring-boot:run
 ```
 
-Acesse:
+Terminal do Payment Service:
 
-```text
-http://localhost:8082
+```powershell
+cd mercado-payment-service
+$env:RABBITMQ_HOST="localhost"
+$env:RABBITMQ_PORT="5672"
+$env:RABBITMQ_USERNAME="<usuario-rabbit-local>"
+$env:RABBITMQ_PASSWORD="<senha-rabbit-local>"
+$env:BANCO_TRANQUILO_URL="http://localhost:8091"
+.\mvnw.cmd spring-boot:run
 ```
 
-## Deploy no Render com PostgreSQL
+Terminal do Mercado Express:
 
-O projeto está publicado no Render:
-
-```text
-https://mercado-api-ii.onrender.com
+```powershell
+cd mercado-api-II
+$env:SPRING_PROFILES_ACTIVE="postgres"
+$env:DB_URL="jdbc:postgresql://localhost:5433/mercado_cp5"
+$env:DB_USERNAME="mercado_cp5_app"
+$env:DB_PASSWORD="<senha-postgres-local>"
+$env:APP_ADMIN_USERNAME="<admin-local>"
+$env:APP_ADMIN_PASSWORD="<senha-admin-local>"
+$env:APP_ADMIN_NAME="Administrador Local"
+$env:RABBITMQ_HOST="localhost"
+$env:RABBITMQ_PORT="5672"
+$env:RABBITMQ_USERNAME="<usuario-rabbit-local>"
+$env:RABBITMQ_PASSWORD="<senha-rabbit-local>"
+$env:EMAIL_TRANSPORT="smtp"
+$env:MAIL_HOST="localhost"
+$env:MAIL_PORT="1025"
+.\mvnw.cmd spring-boot:run
 ```
 
-Área de produtos em produção:
+Serviços locais:
 
-```text
-https://mercado-api-ii.onrender.com/mercado
+| Serviço | Endereço |
+| --- | --- |
+| Mercado Express | `http://localhost:8082` |
+| Banco Tranquilo | `http://localhost:8091` |
+| RabbitMQ AMQP | `localhost:5672` |
+| RabbitMQ Management | `http://localhost:15672` |
+| PostgreSQL | `localhost:5433` |
+| Mailpit | `http://localhost:8025` |
+
+## RabbitMQ, Banco Tranquilo e confirmação de pagamento
+
+O RabbitMQ utiliza exchanges, filas e mensagens duráveis:
+
+| Tipo | Nome | Routing key |
+| --- | --- | --- |
+| Exchange principal | `mercado.payments` | `payment.request`, `payment.result` |
+| Fila de solicitações | `mercado.payment.requests` | `payment.request` |
+| Fila de resultados | `mercado.payment.results` | `payment.result` |
+| Exchange de retry | `mercado.payments.retry` | `payment.request.retry` |
+| Fila de retry | `mercado.payment.requests.retry` | `payment.request.retry` |
+| Dead-letter exchange | `mercado.payments.dlx` | `payment.request.dead`, `payment.result.dead` |
+| Filas de dead letter | `mercado.payment.requests.dlq`, `mercado.payment.results.dlq` | Conforme a origem |
+
+O Banco Tranquilo é um simulador acadêmico de autorização de pagamento disponível localmente em `POST /api/v1/payments`. Para resultados reproduzíveis, compras com ID ímpar recebem `APPROVED` e compras com ID par recebem `REJECTED`.
+
+Em `APPROVED`, a reserva original é mantida, a compra é finalizada e uma notificação `PAYMENT_APPROVED` é criada. Em `REJECTED`, o estoque reservado é devolvido e nenhum e-mail de sucesso é gerado. Resultados inválidos ou conflitantes seguem para a DLQ de resultados.
+
+O transporte de e-mail é configurável:
+
+- `smtp`: usado localmente com Mailpit em `localhost:1025`;
+- `https-api`: adaptador para um provedor futuro, exigindo endpoint HTTPS e token por variáveis de ambiente.
+
+O Mailpit apenas captura mensagens locais para inspeção em `http://localhost:8025`; ele não entrega e-mails a caixas postais externas. Nenhum provedor externo ou credencial real está configurado no projeto.
+
+## Dashboard administrativo
+
+O dashboard está disponível em `GET /admin/dashboard` somente para `ADMIN` e apresenta:
+
+- receita total de compras `APPROVED`;
+- lucro total calculado por `(preço unitário - custo unitário) × quantidade`;
+- quantidade de compras aprovadas, pendentes e rejeitadas;
+- estoque atual por produto;
+- histórico com compra, cliente, data, total e status;
+- gráfico SVG de receita e lucro;
+- gráfico SVG de estoque por produto;
+- estados vazios quando não há dados.
+
+Receita e lucro ignoram compras `PENDING_PAYMENT` e `REJECTED`. O lucro usa exclusivamente os snapshots gravados nos itens, portanto alterações posteriores no cadastro do produto não modificam o resultado histórico. Todos os cálculos monetários são executados no servidor com `BigDecimal`.
+
+## Testes automatizados e Postman
+
+Execute a suíte completa:
+
+```powershell
+.\mvnw.cmd clean package
 ```
 
-O deploy do CP5 usa PostgreSQL. O Java Web Service e o banco PostgreSQL devem pertencer ao mesmo workspace e estar na mesma região do Render para que a rede privada e o hostname interno funcionem.
+A suíte do Mercado Express contém 32 testes que cobrem cadastro, autenticação, autorização, CRUD, compras, reserva e liberação de estoque, contratos JSON, outbox, resultados duplicados, falhas de broker/e-mail, notificações e dashboard.
 
-Configure as variáveis abaixo no Java Web Service. Use o hostname interno exibido pelo Render, mantenha as credenciais separadas da URL e não salve valores reais no repositório:
+A coleção [`postman/mercado-express-e2e.postman_collection.json`](postman/mercado-express-e2e.postman_collection.json) contém o fluxo de login por sessão, obtenção do token CSRF, manutenção do cookie `JSESSIONID`, consulta de produtos, criação/consulta de compras e acesso administrativo ao dashboard.
 
-```text
-SPRING_PROFILES_ACTIVE=postgres
-DB_URL=jdbc:postgresql://<hostname-interno-render>:5432/<nome-do-banco>
-DB_USERNAME=<usuario-postgresql>
-DB_PASSWORD=<senha-postgresql>
-```
+## Capturas da interface
 
-O primeiro usuário `ADMIN` já foi provisionado no banco do CP5. As variáveis `APP_ADMIN_USERNAME`, `APP_ADMIN_PASSWORD` e `APP_ADMIN_NAME` não são necessárias nos próximos deploys e devem permanecer ausentes. O cadastro público cria exclusivamente usuários com perfil `CLIENTE`; a autenticação, o cadastro e as permissões `ADMIN`/`CLIENTE` usam os usuários persistidos no PostgreSQL.
+### Página inicial e autenticação
 
-Durante a inicialização, o Flyway consulta `flyway_schema_history`, valida as migrations existentes `V1` e `V2` e não recria tabelas que já foram migradas com sucesso. Em seguida, o Hibernate valida o schema sem alterá-lo.
+![Página inicial do Mercado Express](docs/images/2-home.png)
 
-### Configuração legada Oracle
+![Login personalizado](docs/images/1-login.png)
 
-As antigas variáveis de Render `APP_USERNAME`, `APP_PASSWORD` e a URL JDBC do Oracle pertencem somente ao perfil legado `oracle`. Elas não fazem parte do deploy PostgreSQL do CP5. Não ative os perfis `postgres` e `oracle` simultaneamente.
+### Produtos
 
-O Dockerfile usa Java 17, build multi-stage e respeita a porta injetada pelo Render via variável `PORT`, pois a aplicação está configurada com:
+![Listagem de produtos](docs/images/03-produtos.png)
 
-```properties
-server.port=${PORT:8082}
-```
+![Cadastro de produto](docs/images/05-novo-produto.png)
 
-## Estrutura do projeto
+![Produto cadastrado](docs/images/05-produto-criado.png)
 
-```text
-.
-├── Dockerfile
-├── README.md
-├── docs
-│   ├── database
-│   │   └── oracle-schema.sql
-│   └── images
-│       ├── 1-login.png
-│       ├── 2-home.png
-│       ├── 03-produtos.png
-│       ├── 05-novo-produto.png
-│       ├── 05-produto-criado.png
-│       ├── 06-detalhes.png
-│       ├── 07-editar-produto.png
-│       ├── 08-produto-atualizado.png
-│       └── spring-initializr.png
-├── pom.xml
-└── src
-    └── main
-        ├── java/br/com/fiap/mercadomvc
-        │   ├── api
-        │   ├── config
-        │   ├── controller
-        │   ├── exception
-        │   ├── model
-        │   ├── repository
-        │   └── service
-        └── resources
-            ├── application.properties
-            ├── static/css/style.css
-            └── templates
-```
+![Detalhes do produto](docs/images/06-detalhes.png)
+
+![Edição de produto](docs/images/07-editar-produto.png)
+
+![Produto atualizado](docs/images/08-produto-atualizado.png)
+
+## Deploy existente no Render
+
+A interface Spring MVC está publicada em:
+
+**https://mercado-api-ii.onrender.com**
+
+Esse ambiente é destinado à demonstração de autenticação e gerenciamento de produtos. O RabbitMQ, o Payment Service, o Banco Tranquilo e o Mailpit não estão implantados no Render; o fluxo completo de pagamento e confirmação por e-mail é executado e validado localmente.
+
+## Repositórios relacionados
+
+- [Mercado API II](https://github.com/GusCrevelari/mercado-api-II): aplicação principal, domínio de compras, estoque, notificações e dashboard.
+- [Mercado Payment Service](https://github.com/GusCrevelari/mercado-payment-service): consumidor RabbitMQ, integração bancária, retry, dead letter e publicação de resultados.
+- [Banco Tranquilo Simulator](https://github.com/GusCrevelari/banco-tranquilo-simulator): simulador acadêmico da API REST de autorização de pagamentos.
+
+Os microsserviços permanecem projetos Java independentes e são executados separadamente.

@@ -1,8 +1,8 @@
 {
   "info": {
     "_postman_id": "7d32f6ec-c4ac-4896-859c-20b67ad7e52e",
-    "name": "CP5 Phase 2E - Mercado E2E",
-    "description": "Fluxo local com autenticacao de sessao. O Postman Cookie Jar deve permanecer habilitado.",
+    "name": "Mercado Express - E2E",
+    "description": "Fluxo local do Mercado Express com autenticação de sessão. O Postman Cookie Jar deve permanecer habilitado.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
