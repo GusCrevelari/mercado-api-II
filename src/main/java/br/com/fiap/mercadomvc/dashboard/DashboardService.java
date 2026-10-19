@@ -4,6 +4,8 @@ import br.com.fiap.mercadomvc.compra.model.Compra;
 import br.com.fiap.mercadomvc.compra.model.CompraItem;
 import br.com.fiap.mercadomvc.compra.model.CompraStatus;
 import br.com.fiap.mercadomvc.compra.repository.CompraRepository;
+import br.com.fiap.mercadomvc.dashboard.dto.DashboardFinancialBar;
+import br.com.fiap.mercadomvc.dashboard.dto.DashboardInventoryBar;
 import br.com.fiap.mercadomvc.dashboard.dto.DashboardInventoryRow;
 import br.com.fiap.mercadomvc.dashboard.dto.DashboardPurchaseRow;
 import br.com.fiap.mercadomvc.dashboard.dto.DashboardView;
@@ -22,6 +24,9 @@ public class DashboardService {
 
     private static final BigDecimal ZERO_MONETARIO = new BigDecimal("0.00");
     private static final DateTimeFormatter DATA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final int EIXO_ZERO_FINANCEIRO = 440;
+    private static final int LARGURA_MAXIMA_FINANCEIRO = 300;
+    private static final int LARGURA_MAXIMA_ESTOQUE = 470;
 
     private final CompraRepository compraRepository;
     private final MercadoRepository mercadoRepository;
@@ -65,6 +70,12 @@ public class DashboardService {
                 .map(this::toPurchaseRow)
                 .toList();
 
+        List<DashboardFinancialBar> graficoFinanceiro = aprovadas == 0
+                ? List.of()
+                : criarGraficoFinanceiro(dinheiro(receita), dinheiro(lucro));
+        List<DashboardInventoryBar> graficoEstoque = criarGraficoEstoque(inventario);
+        int alturaGraficoEstoque = Math.max(120, 44 + (graficoEstoque.size() * 44));
+
         return new DashboardView(
                 dinheiro(receita),
                 dinheiro(lucro),
@@ -72,7 +83,79 @@ public class DashboardService {
                 pendentes,
                 rejeitadas,
                 inventario,
-                linhasCompras);
+                linhasCompras,
+                graficoFinanceiro,
+                graficoEstoque,
+                alturaGraficoEstoque);
+    }
+
+    private List<DashboardFinancialBar> criarGraficoFinanceiro(BigDecimal receita, BigDecimal lucro) {
+        BigDecimal maiorMagnitude = receita.abs().max(lucro.abs());
+        if (maiorMagnitude.signum() == 0) {
+            maiorMagnitude = BigDecimal.ONE;
+        }
+        return List.of(
+                criarBarraFinanceira("Receita", receita, 42, "chart-bar-revenue", maiorMagnitude),
+                criarBarraFinanceira("Lucro", lucro, 112, "chart-bar-profit", maiorMagnitude));
+    }
+
+    private DashboardFinancialBar criarBarraFinanceira(
+            String label,
+            BigDecimal valor,
+            int y,
+            String cssClass,
+            BigDecimal maiorMagnitude) {
+        int largura = larguraProporcional(valor.abs(), maiorMagnitude, LARGURA_MAXIMA_FINANCEIRO);
+        int x = valor.signum() < 0 ? EIXO_ZERO_FINANCEIRO - largura : EIXO_ZERO_FINANCEIRO;
+        int valorX = valor.signum() < 0 ? x - 10 : x + largura + 10;
+        String valorAnchor = valor.signum() < 0 ? "end" : "start";
+        return new DashboardFinancialBar(
+                label,
+                valor,
+                x,
+                y,
+                largura,
+                valorX,
+                valorAnchor,
+                cssClass);
+    }
+
+    private List<DashboardInventoryBar> criarGraficoEstoque(List<DashboardInventoryRow> inventario) {
+        int maiorEstoque = inventario.stream()
+                .mapToInt(DashboardInventoryRow::quantidadeEstoque)
+                .max()
+                .orElse(0);
+        return java.util.stream.IntStream.range(0, inventario.size())
+                .mapToObj(indice -> {
+                    DashboardInventoryRow produto = inventario.get(indice);
+                    int largura = larguraProporcional(
+                            BigDecimal.valueOf(produto.quantidadeEstoque()),
+                            BigDecimal.valueOf(Math.max(1, maiorEstoque)),
+                            LARGURA_MAXIMA_ESTOQUE);
+                    return new DashboardInventoryBar(
+                            produto.id(),
+                            abreviar(produto.nome(), 28),
+                            produto.quantidadeEstoque(),
+                            34 + (indice * 44),
+                            largura,
+                            270 + largura + 10);
+                })
+                .toList();
+    }
+
+    private int larguraProporcional(BigDecimal valor, BigDecimal maximo, int larguraMaxima) {
+        if (valor.signum() == 0 || maximo.signum() == 0) {
+            return 0;
+        }
+        int largura = valor
+                .multiply(BigDecimal.valueOf(larguraMaxima))
+                .divide(maximo, 0, RoundingMode.HALF_UP)
+                .intValue();
+        return Math.max(2, largura);
+    }
+
+    private String abreviar(String valor, int limite) {
+        return valor.length() <= limite ? valor : valor.substring(0, limite - 3) + "...";
     }
 
     private BigDecimal calcularLucroPelosSnapshots(Compra compra) {

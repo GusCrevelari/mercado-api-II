@@ -97,7 +97,7 @@ class DashboardIntegrationTest {
     }
 
     @Test
-    void bancoVazioRetornaTotaisZeradosEColecoesVazias() {
+    void bancoVazioRetornaTotaisZeradosEColecoesVazias() throws Exception {
         DashboardView dashboard = dashboardService.carregar();
 
         assertThat(dashboard.receitaTotal()).isEqualByComparingTo("0.00");
@@ -107,6 +107,15 @@ class DashboardIntegrationTest {
         assertThat(dashboard.comprasRejeitadas()).isZero();
         assertThat(dashboard.inventario()).isEmpty();
         assertThat(dashboard.compras()).isEmpty();
+        assertThat(dashboard.graficoFinanceiro()).isEmpty();
+        assertThat(dashboard.graficoEstoque()).isEmpty();
+
+        mockMvc.perform(get("/admin/dashboard").with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Sem vendas aprovadas")))
+                .andExpect(content().string(containsString("Sem estoque para representar")))
+                .andExpect(content().string(not(containsString("data-chart=\"financial\""))))
+                .andExpect(content().string(not(containsString("data-chart=\"inventory\""))));
     }
 
     @Test
@@ -149,6 +158,15 @@ class DashboardIntegrationTest {
         assertThat(dashboard.comprasRejeitadas()).isEqualTo(1);
         assertThat(dashboard.inventario()).singleElement()
                 .satisfies(item -> assertThat(item.quantidadeEstoque()).isEqualTo(7));
+        assertThat(dashboard.graficoFinanceiro())
+                .extracting(barra -> barra.valor())
+                .containsExactly(new BigDecimal("25.00"), new BigDecimal("10.50"));
+        assertThat(dashboard.graficoEstoque()).singleElement()
+                .satisfies(barra -> {
+                    assertThat(barra.produtoId()).isEqualTo(produto.getId());
+                    assertThat(barra.quantidade()).isEqualTo(7);
+                    assertThat(barra.largura()).isPositive();
+                });
         assertThat(dashboard.compras()).hasSize(3);
         assertThat(dashboard.compras())
                 .extracting(compra -> compra.total())
@@ -164,6 +182,11 @@ class DashboardIntegrationTest {
                 .andExpect(content().string(containsString("Cliente Dashboard")))
                 .andExpect(content().string(containsString("R$ 25,00")))
                 .andExpect(content().string(containsString("R$ 10,50")))
+                .andExpect(content().string(containsString("data-chart=\"financial\"")))
+                .andExpect(content().string(containsString("data-revenue=\"25.00\"")))
+                .andExpect(content().string(containsString("data-profit=\"10.50\"")))
+                .andExpect(content().string(containsString("data-chart=\"inventory\"")))
+                .andExpect(content().string(containsString("data-stock=\"7\"")))
                 .andExpect(content().string(containsString("Aprovada")))
                 .andExpect(content().string(containsString("Pendente")))
                 .andExpect(content().string(containsString("Rejeitada")));

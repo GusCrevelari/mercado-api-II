@@ -1,0 +1,87 @@
+{
+  "info": {
+    "_postman_id": "7d32f6ec-c4ac-4896-859c-20b67ad7e52e",
+    "name": "CP5 Phase 2E - Mercado E2E",
+    "description": "Fluxo local com autenticacao de sessao. O Postman Cookie Jar deve permanecer habilitado.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "CLIENTE",
+      "item": [
+        {
+          "name": "01 - Obter CSRF do login",
+          "request": {"method": "GET", "url": "{{baseUrl}}/login"},
+          "event": [{"listen": "test", "script": {"exec": ["const match = pm.response.text().match(/name=\"_csrf\" value=\"([^\"]+)\"/);", "pm.test('CSRF presente', () => pm.expect(match).not.to.equal(null));", "if (match) pm.collectionVariables.set('csrfToken', match[1]);"]}}]
+        },
+        {
+          "name": "02 - Autenticar CLIENTE",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+            "body": {"mode": "urlencoded", "urlencoded": [{"key": "username", "value": "{{clienteLogin}}"}, {"key": "password", "value": "{{clientePassword}}"}, {"key": "_csrf", "value": "{{csrfToken}}"}]},
+            "url": "{{baseUrl}}/login"
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Login sem erro', () => pm.expect(pm.response.text()).not.to.include('Usuario ou senha invalidos'));", "pm.test('Sessao autenticada abre produtos', () => pm.expect(pm.response.text()).to.include('Produtos'));"]}}]
+        },
+        {
+          "name": "03 - Listar produtos",
+          "request": {"method": "GET", "url": "{{baseUrl}}/api/mercado"},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));"]}}]
+        },
+        {
+          "name": "04 - Criar compra",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"itens\": [\n    {\n      \"produtoId\": {{produtoId}},\n      \"quantidade\": {{quantidade}}\n    }\n  ]\n}"},
+            "url": "{{baseUrl}}/api/compras"
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Compra criada', () => pm.response.to.have.status(201));", "const body = pm.response.json();", "pm.collectionVariables.set('purchaseId', body.id);", "pm.test('Nasce pendente', () => pm.expect(body.status).to.eql('PENDING_PAYMENT'));"]}}]
+        },
+        {
+          "name": "05 - Consultar compra",
+          "request": {"method": "GET", "url": "{{baseUrl}}/api/compras/{{purchaseId}}"},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('HTTP 200', () => pm.response.to.have.status(200));", "console.log('status da compra:', pm.response.json().status);"]}}]
+        }
+      ]
+    },
+    {
+      "name": "ADMIN",
+      "description": "Antes desta pasta, limpe o JSESSIONID de localhost no Cookie Jar.",
+      "item": [
+        {
+          "name": "01 - Obter CSRF do login ADMIN",
+          "request": {"method": "GET", "url": "{{baseUrl}}/login"},
+          "event": [{"listen": "test", "script": {"exec": ["const match = pm.response.text().match(/name=\"_csrf\" value=\"([^\"]+)\"/);", "pm.test('CSRF presente', () => pm.expect(match).not.to.equal(null));", "if (match) pm.collectionVariables.set('csrfToken', match[1]);"]}}]
+        },
+        {
+          "name": "02 - Autenticar ADMIN",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/x-www-form-urlencoded"}],
+            "body": {"mode": "urlencoded", "urlencoded": [{"key": "username", "value": "{{adminLogin}}"}, {"key": "password", "value": "{{adminPassword}}"}, {"key": "_csrf", "value": "{{csrfToken}}"}]},
+            "url": "{{baseUrl}}/login"
+          },
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('Sessao autenticada abre produtos', () => pm.expect(pm.response.text()).to.include('Produtos'));"]}}]
+        },
+        {
+          "name": "03 - Dashboard com graficos",
+          "request": {"method": "GET", "url": "{{baseUrl}}/admin/dashboard"},
+          "event": [{"listen": "test", "script": {"exec": ["pm.test('ADMIN recebe dashboard', () => pm.response.to.have.status(200));", "pm.test('Graficos SVG renderizados', () => { const html = pm.response.text(); pm.expect(html).to.include('data-chart=\"financial\"'); pm.expect(html).to.include('data-chart=\"inventory\"'); });"]}}]
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {"key": "baseUrl", "value": "http://localhost:8082"},
+    {"key": "clienteLogin", "value": "cliente.integracao"},
+    {"key": "clientePassword", "value": "senha-local-123"},
+    {"key": "adminLogin", "value": "admin.local"},
+    {"key": "adminPassword", "value": "admin-local-123"},
+    {"key": "produtoId", "value": "1"},
+    {"key": "quantidade", "value": "1"},
+    {"key": "csrfToken", "value": ""},
+    {"key": "purchaseId", "value": ""}
+  ]
+}

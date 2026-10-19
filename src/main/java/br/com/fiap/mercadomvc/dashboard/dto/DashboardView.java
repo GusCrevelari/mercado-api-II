@@ -10,10 +10,15 @@ public record DashboardView(
         long comprasPendentes,
         long comprasRejeitadas,
         List<DashboardInventoryRow> inventario,
-        List<DashboardPurchaseRow> compras) {
+        List<DashboardPurchaseRow> compras,
+        List<DashboardFinancialBar> graficoFinanceiro,
+        List<DashboardInventoryBar> graficoEstoque,
+        int alturaGraficoEstoque) {
 
     public DashboardView {
         inventario = List.copyOf(inventario);
         compras = List.copyOf(compras);
+        graficoFinanceiro = List.copyOf(graficoFinanceiro);
+        graficoEstoque = List.copyOf(graficoEstoque);
     }
 }

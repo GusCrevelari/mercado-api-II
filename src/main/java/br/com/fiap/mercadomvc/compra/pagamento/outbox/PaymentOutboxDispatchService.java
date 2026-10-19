@@ -5,11 +5,15 @@ import br.com.fiap.mercadomvc.compra.pagamento.dto.PaymentRequest;
 import br.com.fiap.mercadomvc.compra.pagamento.messaging.PaymentRequestEnvelope;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class PaymentOutboxDispatchService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PaymentOutboxDispatchService.class);
 
     private final PaymentOutboxRepository repository;
     private final PaymentRequestPublisher publisher;
@@ -37,8 +41,19 @@ public class PaymentOutboxDispatchService {
                     compra.getMoeda());
             publisher.publish(new PaymentRequestEnvelope(outbox.getPaymentAttemptId(), payload));
             outbox.registrarPublicacao(now);
+            LOGGER.info(
+                    "Solicitacao de pagamento publicada: compraId={}, paymentAttemptId={}, correlationId={}",
+                    compra.getId(),
+                    outbox.getPaymentAttemptId(),
+                    compra.getCorrelationId());
         } catch (RuntimeException exception) {
             outbox.registrarFalha(now, exception.getClass().getSimpleName() + ": " + exception.getMessage());
+            LOGGER.warn(
+                    "Falha ao publicar solicitacao de pagamento: outboxId={}, paymentAttemptId={}, tentativa={}",
+                    outbox.getId(),
+                    outbox.getPaymentAttemptId(),
+                    outbox.getTentativas(),
+                    exception);
         }
     }
 }

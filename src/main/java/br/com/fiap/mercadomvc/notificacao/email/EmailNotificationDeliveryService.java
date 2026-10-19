@@ -5,12 +5,16 @@ import br.com.fiap.mercadomvc.notificacao.email.transport.EmailMessage;
 import br.com.fiap.mercadomvc.notificacao.email.transport.EmailTransport;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 @Service
 public class EmailNotificationDeliveryService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmailNotificationDeliveryService.class);
 
     private final EmailNotificationRepository repository;
     private final EmailTransport transport;
@@ -39,8 +43,18 @@ public class EmailNotificationDeliveryService {
                     "Pagamento aprovado - compra #" + compra.getId(),
                     body(compra)));
             notification.registrarSucesso(now);
+            LOGGER.info(
+                    "Email de confirmacao aceito pelo transporte: compraId={}, notificacaoId={}, destinatario={}",
+                    compra.getId(),
+                    notification.getId(),
+                    notification.getDestinatario());
         } catch (RuntimeException exception) {
             notification.registrarFalha(now, exception.getClass().getSimpleName() + ": " + exception.getMessage());
+            LOGGER.warn(
+                    "Falha no transporte do email de confirmacao: notificacaoId={}, tentativa={}",
+                    notification.getId(),
+                    notification.getTentativas(),
+                    exception);
         }
     }
 
